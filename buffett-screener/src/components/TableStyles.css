@@ -1,0 +1,140 @@
+.table-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  margin-bottom: 2rem;
+  overflow-x: auto;
+  color: #333;
+}
+
+.table-container h2 {
+  margin-top: 0;
+  color: #1A6B3C;
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th, .data-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.data-table th {
+  background-color: #F0FFF4;
+  color: #1A6B3C;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clickable-row:hover {
+  background-color: #f9f9f9;
+}
+
+.fw-bold {
+  font-weight: 700;
+}
+
+.highlight-green {
+  background-color: rgba(46, 139, 87, 0.15);
+  font-weight: bold;
+  color: #1A6B3C;
+}
+
+.highlight-amber {
+  background-color: rgba(255, 165, 0, 0.15);
+  font-weight: bold;
+  color: #d97706;
+}
+
+.highlight-red {
+  background-color: rgba(220, 53, 69, 0.15);
+  font-weight: bold;
+  color: #dc3545;
+}
+
+.thesis-cell {
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.badge-success { background-color: #e6f4ea; color: #1e8e3e; }
+.badge-warning { background-color: #fef7e0; color: #f29900; }
+.badge-danger { background-color: #fce8e6; color: #d93025; }
+
+.pill {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.pill.tight { background-color: #e6f4ea; color: #1e8e3e; }
+.pill.moderate { background-color: #fef7e0; color: #f29900; }
+.pill.wide { background-color: #fce8e6; color: #d93025; }
+
+.expanded-row {
+  background-color: #fafafa;
+}
+
+.expanded-row td {
+  padding: 0;
+  border-bottom: 2px solid #eee;
+}
+
+.expanded-content {
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.expanded-section h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.expanded-section ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.expanded-section li {
+  margin-bottom: 0.25rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem !important;
+  color: #888;
+  font-style: italic;
+}
