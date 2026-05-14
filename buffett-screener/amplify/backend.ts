@@ -6,7 +6,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import { Stack, RemovalPolicy } from 'aws-cdk-lib';
+import { Stack, RemovalPolicy, Duration } from 'aws-cdk-lib';
 import path from 'path';
 
 const backend = defineBackend({
@@ -105,7 +105,7 @@ const orchestratorLambda = new lambda.Function(stack, 'ScreenerOrchestrator', {
   handler: 'orchestrator.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: 900,
+  timeout: Duration.seconds(900),
   memorySize: 512,
 });
 
@@ -114,7 +114,7 @@ const dataFetchLambda = new lambda.Function(stack, 'DataFetch', {
   handler: 'dataFetch.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: 300, 
+  timeout: Duration.seconds(300), 
 });
 
 const quantFilterLambda = new lambda.Function(stack, 'QuantFilter', {
@@ -122,7 +122,7 @@ const quantFilterLambda = new lambda.Function(stack, 'QuantFilter', {
   handler: 'quantFilter.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: 300, 
+  timeout: Duration.seconds(300), 
 });
 
 const newsFetchLambda = new lambda.Function(stack, 'NewsFetch', {
@@ -130,7 +130,7 @@ const newsFetchLambda = new lambda.Function(stack, 'NewsFetch', {
   handler: 'newsFetch.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: 300, 
+  timeout: Duration.seconds(300), 
 });
 
 const aiScorerLambda = new lambda.Function(stack, 'AiScorer', {
@@ -138,7 +138,7 @@ const aiScorerLambda = new lambda.Function(stack, 'AiScorer', {
   handler: 'aiScorer.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: 300,
+  timeout: Duration.seconds(300),
   memorySize: 512,
 });
 
@@ -147,7 +147,7 @@ const monteCarloLambda = new lambda.Function(stack, 'MonteCarlo', {
   handler: 'monteCarlo.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: 120,
+  timeout: Duration.seconds(120),
   memorySize: 256,
 });
 
