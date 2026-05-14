@@ -45,7 +45,7 @@ def get_sp500_tickers(s3_client, bucket_name):
         with urllib.request.urlopen(req) as response:
             html = response.read().decode('utf-8')
             # Extract the first table (S&P 500 component stocks)
-            table_match = re.search(r'<table class="wikitable sortable".*?>(.*?)</table>', html, re.DOTALL)
+            table_match = re.search(r'<table[^>]*id="constituents"[^>]*>(.*?)</table>', html, re.DOTALL)
             if not table_match:
                 raise ValueError("Could not find table in HTML")
             
