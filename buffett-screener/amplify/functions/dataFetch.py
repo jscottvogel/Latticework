@@ -247,13 +247,11 @@ def handler(event, context):
     
     api_key = get_secret('/buffett-screener/alpha-vantage-key')
     
-    all_tickers = get_sp500_tickers(s3, s3_bucket)
-    if not all_tickers:
-        all_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN'] # Fallback
-        
-    # If event explicitly provided tickers, use those (e.g. for testing)
     tickers = event.get('tickers')
     if not tickers:
+        all_tickers = get_sp500_tickers(s3, s3_bucket)
+        if not all_tickers:
+            raise ValueError("Failed to fetch S&P 500 tickers. Aborting run.")
         tickers = get_ticker_group(all_tickers, run_id)
         
     print(f"Fetching data for {len(tickers)} tickers in run {run_id}...")

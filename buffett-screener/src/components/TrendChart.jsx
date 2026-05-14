@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['#1A6B3C', '#ff9800', '#2196f3', '#9c27b0', '#e91e63', '#00bcd4', '#4caf50', '#ffeb3b', '#795548', '#607d8b'];
 

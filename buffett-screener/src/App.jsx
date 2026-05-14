@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import InvestableTable from './components/InvestableTable';
 import WeeklyLeaderboard from './components/WeeklyLeaderboard';
@@ -44,7 +44,7 @@ function App() {
     fetchData();
   }, []);
 
-  const handleRunNow = async () => {
+  const handleRunNow = useCallback(async () => {
     const url = outputs?.custom?.orchestratorUrl;
     if (!url) {
       alert("Orchestrator URL not found in config. Make sure the backend has been deployed.");
@@ -65,7 +65,15 @@ function App() {
     } finally {
       setIsTriggering(false);
     }
-  };
+  }, []);
+
+  // Expose to window for console execution
+  useEffect(() => {
+    window.runBuffettPipeline = handleRunNow;
+    return () => {
+      delete window.runBuffettPipeline;
+    };
+  }, [handleRunNow]);
 
   const latestRun = weeklyRuns[0];
 

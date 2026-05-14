@@ -1,5 +1,5 @@
-import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import './ScoreCard.css';
 
 export default function ScoreCard({ scoreData }) {
   if (!scoreData) return null;
