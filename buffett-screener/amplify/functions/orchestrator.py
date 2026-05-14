@@ -101,6 +101,7 @@ def update_rolling_scores(run_id, current_scores):
         record['latestVerdict'] = s.get('verdict')
         record['lastSeen'] = run_id
         record['updatedAt'] = now_iso
+        record['__typename'] = 'RollingScore'
         
         all_rolling[ticker] = record
         
@@ -118,6 +119,7 @@ def update_rolling_scores(run_id, current_scores):
         # For now, we will simply set isInvestable to False if they drop off to be safe.
         record['isInvestable'] = False
         record['updatedAt'] = now_iso
+        record['__typename'] = 'RollingScore'
         
     # 4. Write back to DynamoDB
     import decimal
@@ -174,7 +176,8 @@ def handler(event, context):
         'runId': run_id,
         'runDate': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'status': 'RUNNING',
-        'createdAt': datetime.now(timezone.utc).isoformat()
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+        '__typename': 'WeeklyRun'
     })
     
     try:

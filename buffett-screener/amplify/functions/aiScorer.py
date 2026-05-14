@@ -270,7 +270,8 @@ def handler(event, context):
                     'keyRisks': s.get('key_risks', []),
                     'redFlags': s.get('red_flags', []),
                     'rankThisWeek': s.get('rank_this_week'),
-                    'createdAt': datetime.now(timezone.utc).isoformat()
+                    'createdAt': datetime.now(timezone.utc).isoformat(),
+                    '__typename': 'StockScore'
                 }
                 # Clean up empty lists
                 if not item['keyRisks']: item['keyRisks'] = ['None']
