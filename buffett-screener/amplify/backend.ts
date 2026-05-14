@@ -22,28 +22,9 @@ const stack = Stack.of(backend.data);
 // STEP 2: DYNAMODB TABLES
 // ---------------------------------------------------------
 
-const weeklyRunsTable = new dynamodb.Table(stack, 'WeeklyRuns', {
-  partitionKey: { name: 'runId', type: dynamodb.AttributeType.STRING },
-  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-  pointInTimeRecovery: true,
-  removalPolicy: RemovalPolicy.RETAIN,
-});
-
-const stockScoresTable = new dynamodb.Table(stack, 'StockScores', {
-  partitionKey: { name: 'runId', type: dynamodb.AttributeType.STRING },
-  sortKey: { name: 'ticker', type: dynamodb.AttributeType.STRING },
-  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-  pointInTimeRecovery: true,
-  removalPolicy: RemovalPolicy.RETAIN,
-});
-
-const rollingScoresTable = new dynamodb.Table(stack, 'RollingScores', {
-  partitionKey: { name: 'ticker', type: dynamodb.AttributeType.STRING },
-  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-  pointInTimeRecovery: true,
-  stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
-  removalPolicy: RemovalPolicy.RETAIN,
-});
+const weeklyRunsTable = backend.data.resources.tables['WeeklyRun'];
+const stockScoresTable = backend.data.resources.tables['StockScore'];
+const rollingScoresTable = backend.data.resources.tables['RollingScore'];
 
 const rawFinancialsTable = new dynamodb.Table(stack, 'RawFinancials', {
   partitionKey: { name: 'ticker', type: dynamodb.AttributeType.STRING },
