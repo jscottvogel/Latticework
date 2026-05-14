@@ -1,6 +1,6 @@
 import './Header.css';
 
-export default function Header({ lastUpdated, runCost }) {
+export default function Header({ lastUpdated, runCost, onRunNow, isTriggering }) {
   return (
     <header className="app-header">
       <div className="header-content">
