@@ -272,14 +272,13 @@ def handler(event, context):
                     'rankThisWeek': s.get('rank_this_week'),
                     'createdAt': datetime.now(timezone.utc).isoformat()
                 }
-                # Clean up empty lists (DynamoDB string set can't be empty, so handle it)
+                # Clean up empty lists
                 if not item['keyRisks']: item['keyRisks'] = ['None']
                 if not item['redFlags']: item['redFlags'] = ['None']
                 
-                # We need to use sets for DynamoDB StringSets, but boto3 handles lists as Lists. 
-                # The user specified "DynamoDB StringSet" in the schema.
-                item['keyRisks'] = set(item['keyRisks'])
-                item['redFlags'] = set(item['redFlags'])
+                # Keep them as lists so boto3 saves them as 'L' matching a.string().array()
+                item['keyRisks'] = list(item['keyRisks'])
+                item['redFlags'] = list(item['redFlags'])
                 
                 batch.put_item(Item=item)
 

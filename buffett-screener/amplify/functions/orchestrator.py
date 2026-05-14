@@ -77,9 +77,10 @@ def update_rolling_scores(run_id, current_scores):
         
         history = record.get('scoreHistory', [])
         # Add this week's score
+        import decimal
         history.append({
             'runId': run_id,
-            'compositeScore': float(s.get('compositeScore', 0)),
+            'compositeScore': decimal.Decimal(str(s.get('compositeScore', 0))),
             'verdict': s.get('verdict')
         })
         # Keep only last 4 weeks
@@ -171,6 +172,7 @@ def handler(event, context):
     
     runs_table.put_item(Item={
         'runId': run_id,
+        'runDate': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'status': 'RUNNING',
         'createdAt': datetime.now(timezone.utc).isoformat()
     })
