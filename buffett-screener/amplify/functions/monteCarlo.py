@@ -145,7 +145,7 @@ def handler(event, context):
         
         for ticker, res in results.items():
             try:
-                # Update item using expression to only touch the new fields
+                import decimal
                 table.update_item(
                     Key={
                         'runId': run_id,
@@ -153,9 +153,9 @@ def handler(event, context):
                     },
                     UpdateExpression="SET mcP10 = :p10, mcP90 = :p90, mcProbInvestigate = :prob, mcConfidenceBand = :band",
                     ExpressionAttributeValues={
-                        ':p10': str(res['p10']),
-                        ':p90': str(res['p90']),
-                        ':prob': str(res['prob_investigate']),
+                        ':p10': decimal.Decimal(str(res['p10'])),
+                        ':p90': decimal.Decimal(str(res['p90'])),
+                        ':prob': decimal.Decimal(str(res['prob_investigate'])),
                         ':band': res['confidence_band']
                     }
                 )

@@ -243,18 +243,27 @@ def handler(event, context):
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(db_table)
         
+        import decimal
         with table.batch_writer() as batch:
             for s in scores:
+                
+                def to_dec(val):
+                    if val is None: return None
+                    try:
+                        return decimal.Decimal(str(val))
+                    except:
+                        return None
+                        
                 item = {
                     'runId': run_id,
                     'ticker': s['ticker'],
                     'companyName': s.get('company_name'),
-                    'scoreMoat': s.get('scores', {}).get('moat'),
-                    'scoreFinancialHealth': s.get('scores', {}).get('financial_health'),
-                    'scoreManagement': s.get('scores', {}).get('management'),
-                    'scoreSimplicity': s.get('scores', {}).get('simplicity'),
-                    'scoreMarginOfSafety': s.get('scores', {}).get('margin_of_safety'),
-                    'compositeScore': str(s.get('composite_score')), # Decimal cast via string
+                    'scoreMoat': to_dec(s.get('scores', {}).get('moat')),
+                    'scoreFinancialHealth': to_dec(s.get('scores', {}).get('financial_health')),
+                    'scoreManagement': to_dec(s.get('scores', {}).get('management')),
+                    'scoreSimplicity': to_dec(s.get('scores', {}).get('simplicity')),
+                    'scoreMarginOfSafety': to_dec(s.get('scores', {}).get('margin_of_safety')),
+                    'compositeScore': to_dec(s.get('composite_score')),
                     'verdict': s.get('verdict'),
                     'confidence': s.get('confidence'),
                     'oneLineThesis': s.get('one_line_thesis'),

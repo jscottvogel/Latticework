@@ -119,11 +119,11 @@ def update_rolling_scores(run_id, current_scores):
         record['updatedAt'] = now_iso
         
     # 4. Write back to DynamoDB
+    import decimal
     with table.batch_writer() as batch:
         for ticker, item in all_rolling.items():
-            # DynamoDB requires decimal/str for floats, but float works in boto3 sometimes. Best to stringify.
             item_to_put = dict(item)
-            item_to_put['avgCompositeScore'] = str(item.get('avgCompositeScore', 0))
+            item_to_put['avgCompositeScore'] = decimal.Decimal(str(item.get('avgCompositeScore', 0)))
             batch.put_item(Item=item_to_put)
 
 def export_dashboard_to_s3(run_id, top_scores):
@@ -235,13 +235,14 @@ def handler(event, context):
         export_dashboard_to_s3(run_id, scores)
         
         # Complete
+        import decimal
         runs_table.update_item(
             Key={'runId': run_id},
             UpdateExpression="SET #s = :status, totalCostUsd = :cost, stocksScreened = :ss, candidatesScored = :cs",
             ExpressionAttributeNames={'#s': 'status'},
             ExpressionAttributeValues={
                 ':status': 'COMPLETE',
-                ':cost': str(ai_cost),
+                ':cost': decimal.Decimal(str(ai_cost)),
                 ':ss': len(metrics),
                 ':cs': len(candidates)
             }
