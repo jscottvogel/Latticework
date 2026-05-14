@@ -24,7 +24,7 @@ def get_secret(secret_name):
         return None
 
 def get_sp500_tickers(s3_client, bucket_name):
-    cache_key = 'tickers-cache/sp500.json'
+    cache_key = 'tickers-cache/sp500_v2.json'
     try:
         # Check S3 cache
         obj = s3_client.get_object(Bucket=bucket_name, Key=cache_key)
