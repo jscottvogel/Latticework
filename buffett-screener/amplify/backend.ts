@@ -58,7 +58,6 @@ const rawFinancialsTable = new dynamodb.Table(stack, 'RawFinancials', {
 // ---------------------------------------------------------
 
 const dataBucket = new s3.Bucket(stack, 'BuffettScreenerData', {
-  bucketName: `buffett-screener-data-${stack.account}`,
   versioned: true,
   blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
   removalPolicy: RemovalPolicy.RETAIN,
