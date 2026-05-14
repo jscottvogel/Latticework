@@ -22,16 +22,15 @@ const stack = Stack.of(backend.data);
 // STEP 2: DYNAMODB TABLES
 // ---------------------------------------------------------
 
-// In Gen 2, the tables are wrappers around CfnResource. We cast to any to access the underlying resource properties.
-const weeklyRunsTable = (backend.data.resources.cfnResources.amplifyDynamoDbTables['WeeklyRun'] as any).resource;
-const stockScoresTable = (backend.data.resources.cfnResources.amplifyDynamoDbTables['StockScore'] as any).resource;
-const rollingScoresTable = (backend.data.resources.cfnResources.amplifyDynamoDbTables['RollingScore'] as any).resource;
+const weeklyRunsTable = backend.data.resources.tables['WeeklyRun'];
+const stockScoresTable = backend.data.resources.tables['StockScore'];
+const rollingScoresTable = backend.data.resources.tables['RollingScore'];
 
 const rawFinancialsTable = new dynamodb.Table(stack, 'RawFinancials', {
   partitionKey: { name: 'ticker', type: dynamodb.AttributeType.STRING },
   sortKey: { name: 'runId', type: dynamodb.AttributeType.STRING },
   billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-  pointInTimeRecovery: true,
+  pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
   removalPolicy: RemovalPolicy.RETAIN,
 });
 
@@ -58,9 +57,9 @@ const lambdaPolicy = new iam.PolicyStatement({
     'dynamodb:Scan'
   ],
   resources: [
-    weeklyRunsTable.attrArn,
-    stockScoresTable.attrArn,
-    rollingScoresTable.attrArn,
+    weeklyRunsTable.tableArn,
+    stockScoresTable.tableArn,
+    rollingScoresTable.tableArn,
     rawFinancialsTable.tableArn,
   ]
 });
@@ -167,14 +166,14 @@ dataFetchLambda.addEnvironment('ALPHA_VANTAGE_TIER', 'premium'); // Premium API
 
 quantFilterLambda.addEnvironment('NEWS_FETCH_FUNCTION_NAME', newsFetchLambda.functionName);
 quantFilterLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
-quantFilterLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.ref);
+quantFilterLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
 
 newsFetchLambda.addEnvironment('AI_SCORER_FUNCTION_NAME', aiScorerLambda.functionName);
 
 orchestratorLambda.addEnvironment('DATA_FETCH_FUNCTION_NAME', dataFetchLambda.functionName);
-orchestratorLambda.addEnvironment('DYNAMODB_TABLE_WEEKLY_RUNS', weeklyRunsTable.ref);
-orchestratorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.ref);
-orchestratorLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.ref);
+orchestratorLambda.addEnvironment('DYNAMODB_TABLE_WEEKLY_RUNS', weeklyRunsTable.tableName);
+orchestratorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
+orchestratorLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.tableName);
 orchestratorLambda.addEnvironment('DYNAMODB_TABLE_RAW_FINANCIALS', rawFinancialsTable.tableName);
 orchestratorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 orchestratorLambda.addEnvironment('SNS_ALERT_ARN', `arn:aws:sns:${stack.region}:${stack.account}:buffett-screener-alerts`);
