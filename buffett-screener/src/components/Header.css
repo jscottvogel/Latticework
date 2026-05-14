@@ -32,3 +32,24 @@
   opacity: 0.7;
   text-align: right;
 }
+
+.run-now-btn {
+  background-color: #ffffff;
+  color: #1A6B3C;
+  border: none;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+  font-size: 0.85rem;
+}
+
+.run-now-btn:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.run-now-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -202,3 +202,18 @@ const weeklyRule = new events.Rule(stack, 'WeeklyRunRule', {
   schedule: events.Schedule.cron({ minute: '0', hour: '17', weekDay: 'FRI' }),
 });
 weeklyRule.addTarget(new targets.LambdaFunction(orchestratorLambda));
+
+// Add Function URL for manual trigger
+const orchestratorUrl = orchestratorLambda.addFunctionUrl({
+  authType: lambda.FunctionUrlAuthType.NONE,
+  cors: {
+    allowedOrigins: ['*'],
+    allowedMethods: [lambda.HttpMethod.POST],
+  },
+});
+
+backend.addOutput({
+  custom: {
+    orchestratorUrl: orchestratorUrl.url,
+  },
+});
