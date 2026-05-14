@@ -1,6 +1,7 @@
 import json
 import os
 import boto3
+from botocore.config import Config
 import time
 from datetime import datetime, timezone
 
@@ -14,7 +15,8 @@ def invoke_lambda(function_name_env_key, payload):
     if not function_arn:
         raise RuntimeError(f"Missing environment variable: {function_name_env_key}")
         
-    client = boto3.client('lambda')
+    config = Config(read_timeout=900, connect_timeout=60, retries={'max_attempts': 0})
+    client = boto3.client('lambda', config=config)
     print(f"Invoking {function_arn} synchronously...")
     start_t = time.time()
     
@@ -249,6 +251,12 @@ def handler(event, context):
         print(summary)
         send_alert('Weekly Screen Complete', summary)
         
+        if 'requestContext' in event:
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({'status': 'COMPLETE', 'run_id': run_id})
+            }
         return {'status': 'COMPLETE', 'run_id': run_id}
         
     except Exception as e:
@@ -263,4 +271,11 @@ def handler(event, context):
             }
         )
         send_alert(f'ALERT: Weekly Screen Failed ({run_id})', str(e))
+        
+        if 'requestContext' in event:
+            return {
+                "statusCode": 500,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({'error': str(e)})
+            }
         raise
