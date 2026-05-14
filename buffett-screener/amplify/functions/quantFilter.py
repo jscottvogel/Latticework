@@ -46,7 +46,7 @@ def score_stock(metrics):
     pe = metrics.get('peRatio')
     check(pe is not None and pe > 0 and pe <= MAX_PE_RATIO, 5, 'PE <= 35')
 
-    passes = len(flags_failed) == 0
+    passes = score >= 50
 
     return {
         'passes': passes,
