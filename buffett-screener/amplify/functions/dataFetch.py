@@ -40,7 +40,7 @@ def get_sp500_tickers(s3_client, bucket_name):
     # Fetch from Wikipedia
     print("Fetching S&P 500 from Wikipedia...")
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
     try:
         with urllib.request.urlopen(req) as response:
             html = response.read().decode('utf-8')
@@ -144,12 +144,17 @@ def fetch_cash_flow(ticker, api_key):
         if ocf is not None and capex is not None:
             fcf_cleaned.append(ocf - abs(capex))
             
+    def _safe_cagr(start, end, periods):
+        if start is None or end is None or periods <= 0:
+            return None
+        if start <= 0 or end <= 0:
+            # Simplistic handling: if start or end is negative/zero, standard CAGR formula breaks.
+            return None
+        return (end / start) ** (1/periods) - 1
+            
     fcf_growth_3yr = None
     if len(fcf_cleaned) >= 4:
-        current = fcf_cleaned[0]
-        past = fcf_cleaned[3]
-        if past and past > 0:
-            fcf_growth_3yr = (current / past) ** (1/3) - 1
+        fcf_growth_3yr = _safe_cagr(fcf_cleaned[3], fcf_cleaned[0], 3)
             
     return {
         'fcf_growth_3yr': fcf_growth_3yr,
@@ -165,7 +170,7 @@ def fetch_income(ticker, api_key):
     if len(reports) >= 6:
         current_ni = _safe_float(reports[0].get('netIncome'))
         past_ni = _safe_float(reports[5].get('netIncome'))
-        if past_ni and past_ni > 0 and current_ni:
+        if past_ni and past_ni > 0 and current_ni and current_ni > 0:
             eps_growth_5yr = (current_ni / past_ni) ** (1/5) - 1
             
     if len(reports) >= 1:
@@ -231,7 +236,7 @@ def fetch_all_metrics(ticker, api_key):
         'peRatio': pe,
         'earningsYield': ey,
         'pctFrom52wHigh': None,
-        'fetchedAt': datetime.now(timezone.utc).isoformat()
+        'fetchedAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
     }
 
 def handler(event, context):

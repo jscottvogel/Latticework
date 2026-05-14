@@ -271,7 +271,7 @@ def handler(event, context):
                     'keyRisks': s.get('key_risks', []),
                     'redFlags': s.get('red_flags', []),
                     'rankThisWeek': s.get('rank_this_week'),
-                    'createdAt': datetime.now(timezone.utc).isoformat(),
+                    'createdAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
                     '__typename': 'StockScore'
                 }
                 # Clean up empty lists

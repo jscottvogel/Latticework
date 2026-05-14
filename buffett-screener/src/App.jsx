@@ -41,7 +41,13 @@ function App() {
         setLoading(false);
       }
     }
+    
+    // Initial fetch
     fetchData();
+    
+    // Poll every 10 seconds to auto-update
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleRunNow = useCallback(async () => {

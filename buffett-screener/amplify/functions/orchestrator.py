@@ -176,7 +176,7 @@ def handler(event, context):
         'runId': run_id,
         'runDate': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'status': 'RUNNING',
-        'createdAt': datetime.now(timezone.utc).isoformat(),
+        'createdAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         '__typename': 'WeeklyRun'
     })
     
