@@ -260,7 +260,10 @@ def handler(event, context):
         if 'requestContext' in event:
             return {
                 "statusCode": 200,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
                 "body": json.dumps({'status': 'COMPLETE', 'run_id': run_id})
             }
         return {'status': 'COMPLETE', 'run_id': run_id}
@@ -281,7 +284,10 @@ def handler(event, context):
         if 'requestContext' in event:
             return {
                 "statusCode": 500,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
                 "body": json.dumps({'error': str(e)})
             }
         raise

@@ -10,7 +10,7 @@ MIN_FCF_GROWTH = 0.05
 MIN_EPS_GROWTH = 0.08
 MIN_CURRENT_RATIO = 1.2
 MAX_PE_RATIO = 35
-MAX_CANDIDATES = 50
+MAX_CANDIDATES = 20
 
 def score_stock(metrics):
     score = 0

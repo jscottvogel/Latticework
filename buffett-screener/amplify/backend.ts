@@ -113,7 +113,7 @@ const newsFetchLambda = new lambda.Function(stack, 'NewsFetch', {
   handler: 'newsFetch.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: Duration.seconds(300), 
+  timeout: Duration.seconds(900), 
 });
 
 const aiScorerLambda = new lambda.Function(stack, 'AiScorer', {
@@ -121,7 +121,7 @@ const aiScorerLambda = new lambda.Function(stack, 'AiScorer', {
   handler: 'aiScorer.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: Duration.seconds(300),
+  timeout: Duration.seconds(900),
   memorySize: 512,
 });
 
