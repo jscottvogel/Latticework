@@ -26,22 +26,36 @@ function App() {
     async function fetchData() {
       try {
         const { data: runs, errors: runErrs } = await client.models.WeeklyRun.list({ limit: 10 });
-        const { data: scores, errors: scoreErrs } = await client.models.StockScore.list({ limit: 100 });
         const { data: rolling, errors: rollingErrs } = await client.models.RollingScore.list({ limit: 100 });
         
-        const allErrs = [...(runErrs || []), ...(scoreErrs || []), ...(rollingErrs || [])];
+        const allErrs = [...(runErrs || []), ...(rollingErrs || [])];
         if (allErrs.length > 0) {
           console.error('GraphQL partial mapping errors (likely old corrupt records):', allErrs);
         }
         
         // Filter out null records that failed schema validation
         const validRuns = (runs || []).filter(r => r !== null && r.createdAt);
-        const validScores = (scores || []).filter(s => s !== null && s.ticker && s.createdAt);
-        validScores.sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0));
         const validRolling = (rolling || []).filter(r => r !== null && r.ticker && r.createdAt);
 
         // Sort runs by createdAt descending
         const sortedRuns = [...validRuns].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        // Fetch only scores for the latest run
+        let validScores = [];
+        if (sortedRuns.length > 0) {
+          const latestRunId = sortedRuns[0].runId;
+          const { data: scores, errors: scoreErrs } = await client.models.StockScore.list({ 
+            filter: { runId: { eq: latestRunId } },
+            limit: 100 
+          });
+          
+          if (scoreErrs?.length > 0) {
+            console.error('StockScore mapping errors:', scoreErrs);
+          }
+          
+          validScores = (scores || []).filter(s => s !== null && s.ticker && s.createdAt);
+          validScores.sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0));
+        }
 
         setWeeklyRuns(sortedRuns);
         setStockScores(validScores);
