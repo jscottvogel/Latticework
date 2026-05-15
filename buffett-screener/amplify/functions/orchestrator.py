@@ -72,7 +72,8 @@ def update_rolling_scores(run_id, current_scores):
             'ticker': ticker,
             'companyName': s.get('companyName'),
             'sector': s.get('sector'),
-            'scoreHistory': [] # custom list we will maintain
+            'scoreHistory': [],
+            'createdAt': now_iso
         })
         
         history = record.get('scoreHistory', [])
@@ -172,11 +173,13 @@ def handler(event, context):
     dynamodb = boto3.resource('dynamodb')
     runs_table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE_WEEKLY_RUNS'))
     
+    now_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
     runs_table.put_item(Item={
         'runId': run_id,
         'runDate': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'status': 'RUNNING',
-        'createdAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        'createdAt': now_iso,
+        'updatedAt': now_iso,
         '__typename': 'WeeklyRun'
     })
     
@@ -243,13 +246,14 @@ def handler(event, context):
         import decimal
         runs_table.update_item(
             Key={'runId': run_id},
-            UpdateExpression="SET #s = :status, totalCostUsd = :cost, stocksScreened = :ss, candidatesScored = :cs",
+            UpdateExpression="SET #s = :status, totalCostUsd = :cost, stocksScreened = :ss, candidatesScored = :cs, updatedAt = :updated",
             ExpressionAttributeNames={'#s': 'status'},
             ExpressionAttributeValues={
                 ':status': 'COMPLETE',
                 ':cost': decimal.Decimal(str(ai_cost)),
                 ':ss': len(metrics),
-                ':cs': len(candidates)
+                ':cs': len(candidates),
+                ':updated': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             }
         )
         

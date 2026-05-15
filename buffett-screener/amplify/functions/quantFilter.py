@@ -107,11 +107,15 @@ def handler(event, context):
         table = dynamodb.Table(db_table)
         for c in candidates:
             # DynamoDB requires decimals/strings for floats
+            from datetime import datetime, timezone
+            now_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             item = {
                 'runId': run_id,
                 'ticker': c['ticker'],
                 'compositeScore': str(c['quant_score']),
-                '__typename': 'StockScore'
+                '__typename': 'StockScore',
+                'createdAt': now_iso,
+                'updatedAt': now_iso
             }
             try:
                 table.put_item(Item=item)

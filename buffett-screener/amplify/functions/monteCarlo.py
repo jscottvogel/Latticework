@@ -151,12 +151,13 @@ def handler(event, context):
                         'runId': run_id,
                         'ticker': ticker
                     },
-                    UpdateExpression="SET mcP10 = :p10, mcP90 = :p90, mcProbInvestigate = :prob, mcConfidenceBand = :band",
+                    UpdateExpression="SET mcP10 = :p10, mcP90 = :p90, mcProbInvestigate = :prob, mcConfidenceBand = :band, updatedAt = :updated",
                     ExpressionAttributeValues={
                         ':p10': decimal.Decimal(str(res['p10'])),
                         ':p90': decimal.Decimal(str(res['p90'])),
                         ':prob': decimal.Decimal(str(res['prob_investigate'])),
-                        ':band': res['confidence_band']
+                        ':band': res['confidence_band'],
+                        ':updated': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
                     }
                 )
             except Exception as e:
