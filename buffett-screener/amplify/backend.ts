@@ -172,6 +172,9 @@ quantFilterLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable
 
 newsFetchLambda.addEnvironment('AI_SCORER_FUNCTION_NAME', aiScorerLambda.functionName);
 
+aiScorerLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
+monteCarloLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
+
 orchestratorLambda.addEnvironment('DATA_FETCH_FUNCTION_NAME', dataFetchLambda.functionName);
 orchestratorLambda.addEnvironment('DYNAMODB_TABLE_WEEKLY_RUNS', weeklyRunsTable.tableName);
 orchestratorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
