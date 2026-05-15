@@ -39,12 +39,6 @@ function App() {
         const validScores = (scores || []).filter(s => s !== null && s.ticker && s.createdAt);
         const validRolling = (rolling || []).filter(r => r !== null && r.ticker && r.createdAt);
 
-        if (validRuns.length === 0 && allErrs.length > 0) {
-          setFetchError(allErrs[0].message || JSON.stringify(allErrs[0]));
-          setLoading(false);
-          return;
-        }
-
         // Sort runs by createdAt descending
         const sortedRuns = [...validRuns].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -54,7 +48,6 @@ function App() {
         setTrendData([]); // No TrendData model available yet
       } catch (err) {
         console.error('Error fetching data:', err);
-        setFetchError(err.message || String(err));
       } finally {
         setLoading(false);
       }
@@ -134,11 +127,6 @@ function App() {
 
         {loading ? (
           <div className="loading-spinner">Loading data...</div>
-        ) : fetchError ? (
-          <div className="error-message" style={{ color: 'red', padding: '2rem', textAlign: 'center' }}>
-            <h2>Failed to load data</h2>
-            <p>{fetchError}</p>
-          </div>
         ) : (
           <div className="tab-content">
             {activeTab === 'investable' && (
