@@ -28,12 +28,13 @@ function App() {
         const { data: scores } = await client.models.StockScore.list({ limit: 100 });
         const { data: rolling } = await client.models.RollingScore.list({ limit: 100 });
         
-        // Sort runs by createdAt descending
-        const sortedRuns = [...runs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
         // Filter out null records that failed schema validation
+        const validRuns = (runs || []).filter(r => r !== null && r.createdAt);
         const validScores = (scores || []).filter(s => s !== null && s.ticker);
         const validRolling = (rolling || []).filter(r => r !== null && r.ticker);
+
+        // Sort runs by createdAt descending
+        const sortedRuns = [...validRuns].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         setWeeklyRuns(sortedRuns);
         setStockScores(validScores);
