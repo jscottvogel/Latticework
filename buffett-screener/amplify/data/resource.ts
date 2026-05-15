@@ -10,7 +10,6 @@ const schema = a.schema({
       candidatesScored: a.integer(),
       status: a.string(),
       totalCostUsd: a.float(),
-      createdAt: a.string(),
     })
     .identifier(['runId'])
     .authorization(allow => [allow.publicApiKey()]),
