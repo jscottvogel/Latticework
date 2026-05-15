@@ -54,7 +54,9 @@ const lambdaPolicy = new iam.PolicyStatement({
     'dynamodb:PutItem',
     'dynamodb:UpdateItem',
     'dynamodb:Query',
-    'dynamodb:Scan'
+    'dynamodb:Scan',
+    'dynamodb:BatchWriteItem',
+    'dynamodb:BatchGetItem'
   ],
   resources: [
     weeklyRunsTable.tableArn,
