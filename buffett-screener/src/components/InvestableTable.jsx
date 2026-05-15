@@ -27,14 +27,14 @@ export default function InvestableTable({ rollingScores }) {
       <table className="data-table">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Ticker</th>
-            <th>Company</th>
-            <th>Appearances</th>
-            <th>Avg Score</th>
-            <th>Inv. Count</th>
-            <th>Latest Thesis</th>
-            <th>Status</th>
+            <th title="Current rank based on average composite score">Rank</th>
+            <th title="Stock ticker symbol">Ticker</th>
+            <th title="Company name">Company</th>
+            <th title="Number of appearances in the top 20 over the last 4 weeks">Appearances</th>
+            <th title="Average AI-generated composite score over recent weeks">Avg Score</th>
+            <th title="Number of times flagged with an INVESTIGATE verdict">Inv. Count</th>
+            <th title="Most recent single-line thesis from the AI">Latest Thesis</th>
+            <th title="Current investability status">Status</th>
           </tr>
         </thead>
         <tbody>

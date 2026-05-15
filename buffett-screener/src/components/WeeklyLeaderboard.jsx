@@ -31,17 +31,17 @@ export default function WeeklyLeaderboard({ stockScores }) {
       <table className="data-table">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Ticker</th>
-            <th>Company</th>
-            <th>Score</th>
-            <th>Moat</th>
-            <th>Fin</th>
-            <th>Mgmt</th>
-            <th>Simp</th>
-            <th>Safe</th>
-            <th>Verdict</th>
-            <th>MC Band</th>
+            <th title="Current position on the leaderboard based on composite score">Rank</th>
+            <th title="Stock ticker symbol">Ticker</th>
+            <th title="Company name">Company</th>
+            <th title="Overall AI-generated composite score">Score</th>
+            <th title="Economic Moat score: Does the company have a durable competitive advantage?">Moat</th>
+            <th title="Financial Health score: Are the financials strong and debt manageable?">Fin</th>
+            <th title="Management Quality score: Is management competent and shareholder-friendly?">Mgmt</th>
+            <th title="Business Simplicity score: Is the business simple and easy to understand?">Simp</th>
+            <th title="Margin of Safety score: Is the stock undervalued compared to intrinsic value?">Safe</th>
+            <th title="Final AI verdict recommendation (e.g., INVESTIGATE, MONITOR, PASS)">Verdict</th>
+            <th title="Monte Carlo Confidence Band: Indicates the tightness/certainty of simulated outcomes (Tight, Moderate, Wide)">MC Band</th>
           </tr>
         </thead>
         <tbody>

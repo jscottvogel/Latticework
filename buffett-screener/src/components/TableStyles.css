@@ -138,3 +138,16 @@
   color: #888;
   font-style: italic;
 }
+
+@media (max-width: 768px) {
+  .table-container {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .expanded-content {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 1rem;
+  }
+}

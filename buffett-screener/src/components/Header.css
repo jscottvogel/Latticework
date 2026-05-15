@@ -53,3 +53,25 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem;
+  }
+
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header-stats {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .disclaimer {
+    text-align: left;
+    margin-top: 1rem;
+  }
+}
