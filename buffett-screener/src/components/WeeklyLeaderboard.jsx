@@ -48,10 +48,10 @@ export default function WeeklyLeaderboard({ stockScores }) {
           {sorted.length === 0 && (
             <tr><td colSpan="11" className="empty-state">No scores available for this week.</td></tr>
           )}
-          {sorted.map((score) => (
+          {sorted.map((score, index) => (
             <React.Fragment key={score.ticker}>
               <tr onClick={() => toggleRow(score.ticker)} className="clickable-row">
-                <td>#{score.rankThisWeek || '-'}</td>
+                <td>#{index + 1}</td>
                 <td className="fw-bold">{score.ticker}</td>
                 <td>{score.companyName}</td>
                 <td className="fw-bold highlight-green">{score.compositeScore?.toFixed(1)}</td>
