@@ -31,16 +31,19 @@ function App() {
         
         const allErrs = [...(runErrs || []), ...(scoreErrs || []), ...(rollingErrs || [])];
         if (allErrs.length > 0) {
-          console.error('GraphQL Errors:', allErrs);
-          setFetchError(allErrs[0].message || JSON.stringify(allErrs[0]));
-          setLoading(false);
-          return;
+          console.error('GraphQL partial mapping errors (likely old corrupt records):', allErrs);
         }
         
         // Filter out null records that failed schema validation
         const validRuns = (runs || []).filter(r => r !== null && r.createdAt);
-        const validScores = (scores || []).filter(s => s !== null && s.ticker);
-        const validRolling = (rolling || []).filter(r => r !== null && r.ticker);
+        const validScores = (scores || []).filter(s => s !== null && s.ticker && s.createdAt);
+        const validRolling = (rolling || []).filter(r => r !== null && r.ticker && r.createdAt);
+
+        if (validRuns.length === 0 && allErrs.length > 0) {
+          setFetchError(allErrs[0].message || JSON.stringify(allErrs[0]));
+          setLoading(false);
+          return;
+        }
 
         // Sort runs by createdAt descending
         const sortedRuns = [...validRuns].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
