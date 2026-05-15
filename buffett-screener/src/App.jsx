@@ -25,9 +25,17 @@ function App() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const { data: runs } = await client.models.WeeklyRun.list({ limit: 10 });
-        const { data: scores } = await client.models.StockScore.list({ limit: 100 });
-        const { data: rolling } = await client.models.RollingScore.list({ limit: 100 });
+        const { data: runs, errors: runErrs } = await client.models.WeeklyRun.list({ limit: 10 });
+        const { data: scores, errors: scoreErrs } = await client.models.StockScore.list({ limit: 100 });
+        const { data: rolling, errors: rollingErrs } = await client.models.RollingScore.list({ limit: 100 });
+        
+        const allErrs = [...(runErrs || []), ...(scoreErrs || []), ...(rollingErrs || [])];
+        if (allErrs.length > 0) {
+          console.error('GraphQL Errors:', allErrs);
+          setFetchError(allErrs[0].message || JSON.stringify(allErrs[0]));
+          setLoading(false);
+          return;
+        }
         
         // Filter out null records that failed schema validation
         const validRuns = (runs || []).filter(r => r !== null && r.createdAt);
