@@ -46,10 +46,10 @@ export default function ScoreCard({ scoreData }) {
 
       <div style={{ height: '250px', width: '100%', marginTop: '1rem' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="50%" data={data}>
+          <RadarChart cx="50%" cy="50%" outerRadius="45%" data={data} margin={{ top: 10, right: 25, bottom: 10, left: 25 }}>
             <PolarGrid />
-            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#666' }} />
-            <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fontSize: 10 }} />
+            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: '#666' }} />
+            <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fontSize: 9 }} />
             <Radar name={scoreData.ticker} dataKey="A" stroke="#1A6B3C" fill="#1A6B3C" fillOpacity={0.4} />
           </RadarChart>
         </ResponsiveContainer>
