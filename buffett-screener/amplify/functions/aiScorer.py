@@ -123,7 +123,7 @@ def _call_anthropic_api(api_key, user_msg, force_json=False):
         sys_prompt += "\n\nCRITICAL: YOU MUST RETURN ONLY VALID JSON. NO PREAMBLE. NO EXPLANATION."
         
     payload = {
-        "model": "claude-3-5-haiku-latest", # using latest available haiku
+        "model": "claude-haiku-4-5-20251001", # actively supported Haiku 4.5 model
         "max_tokens": 600,
         "system": sys_prompt,
         "messages": [
