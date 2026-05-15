@@ -15,6 +15,7 @@ const client = generateClient();
 function App() {
   const [activeTab, setActiveTab] = useState('investable');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [isTriggering, setIsTriggering] = useState(false);
   const [weeklyRuns, setWeeklyRuns] = useState([]);
   const [stockScores, setStockScores] = useState([]);
@@ -42,6 +43,7 @@ function App() {
         setTrendData([]); // No TrendData model available yet
       } catch (err) {
         console.error('Error fetching data:', err);
+        setFetchError(err.message || String(err));
       } finally {
         setLoading(false);
       }
@@ -121,6 +123,11 @@ function App() {
 
         {loading ? (
           <div className="loading-spinner">Loading data...</div>
+        ) : fetchError ? (
+          <div className="error-message" style={{ color: 'red', padding: '2rem', textAlign: 'center' }}>
+            <h2>Failed to load data</h2>
+            <p>{fetchError}</p>
+          </div>
         ) : (
           <div className="tab-content">
             {activeTab === 'investable' && (
