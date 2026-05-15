@@ -37,6 +37,7 @@ function App() {
         // Filter out null records that failed schema validation
         const validRuns = (runs || []).filter(r => r !== null && r.createdAt);
         const validScores = (scores || []).filter(s => s !== null && s.ticker && s.createdAt);
+        validScores.sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0));
         const validRolling = (rolling || []).filter(r => r !== null && r.ticker && r.createdAt);
 
         // Sort runs by createdAt descending
