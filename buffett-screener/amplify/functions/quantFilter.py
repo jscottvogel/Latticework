@@ -110,7 +110,8 @@ def handler(event, context):
             item = {
                 'runId': run_id,
                 'ticker': c['ticker'],
-                'compositeScore': str(c['quant_score'])
+                'compositeScore': str(c['quant_score']),
+                '__typename': 'StockScore'
             }
             try:
                 table.put_item(Item=item)
