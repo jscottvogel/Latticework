@@ -31,9 +31,13 @@ function App() {
         // Sort runs by createdAt descending
         const sortedRuns = [...runs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+        // Filter out null records that failed schema validation
+        const validScores = (scores || []).filter(s => s !== null && s.ticker);
+        const validRolling = (rolling || []).filter(r => r !== null && r.ticker);
+
         setWeeklyRuns(sortedRuns);
-        setStockScores(scores);
-        setRollingScores(rolling);
+        setStockScores(validScores);
+        setRollingScores(validRolling);
         setTrendData([]); // No TrendData model available yet
       } catch (err) {
         console.error('Error fetching data:', err);

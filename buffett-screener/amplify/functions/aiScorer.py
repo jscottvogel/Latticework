@@ -88,7 +88,8 @@ RULES:
 - Flag accounting irregularities in red_flags.
 - If data insufficient: confidence = LOW.
 - verdict: INVESTIGATE if composite>=7, MONITOR if 5-7, AVOID if <5.
-- Reward consistency. Penalise debt and complexity."""
+- Reward consistency. Penalise debt and complexity.
+- CRITICAL: Escape any double quotes inside JSON string values (e.g. \") or use single quotes for text."""
 
 def build_user_message(metrics, news_summary):
     def fmt_pct(val):
@@ -124,7 +125,7 @@ def _call_anthropic_api(api_key, user_msg, force_json=False):
         
     payload = {
         "model": "claude-haiku-4-5-20251001", # actively supported Haiku 4.5 model
-        "max_tokens": 600,
+        "max_tokens": 2000,
         "system": sys_prompt,
         "messages": [
             {"role": "user", "content": user_msg}
@@ -155,14 +156,12 @@ def score_stock(metrics, news_summary, api_key):
         input_tokens = res['usage']['input_tokens']
         output_tokens = res['usage']['output_tokens']
         
-        # Strip potential markdown block
-        content = content.strip()
-        if content.startswith('```json'):
-            content = content[7:]
-        if content.startswith('```'):
-            content = content[3:]
-        if content.endswith('```'):
-            content = content[:-3]
+        import re
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+            content = match.group(0)
+        else:
+            raise ValueError("No JSON object found in response")
             
         parsed = json.loads(content)
         parsed['input_tokens'] = input_tokens
