@@ -40,7 +40,7 @@ export default function WeeklyLeaderboard({ stockScores }) {
             <th title="Management Quality score: Is management competent and shareholder-friendly?">Mgmt</th>
             <th title="Business Simplicity score: Is the business simple and easy to understand?">Simp</th>
             <th title="Margin of Safety score: Is the stock undervalued compared to intrinsic value?">Safe</th>
-            <th title="Final AI verdict recommendation (e.g., INVESTIGATE, MONITOR, PASS)">Verdict</th>
+            <th title="Final AI verdict recommendation (e.g., INVESTIGATE, MONITOR, AVOID)">Verdict</th>
             <th title="Monte Carlo Confidence Band: Indicates the tightness/certainty of simulated outcomes (Tight, Moderate, Wide)">MC Band</th>
           </tr>
         </thead>
