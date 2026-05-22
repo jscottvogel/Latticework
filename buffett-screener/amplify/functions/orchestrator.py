@@ -197,6 +197,10 @@ def handler(event, context):
                 ExpressionAttributeValues={":status": "COMPLETE"}
             )
             completed_runs = response.get('Items', [])
+            
+            # Exclude the current run_id so we truly get the PREVIOUS run
+            completed_runs = [r for r in completed_runs if r['runId'] != run_id]
+            
             if completed_runs:
                 completed_runs.sort(key=lambda x: x['runId'], reverse=True)
                 last_run_id = completed_runs[0]['runId']
