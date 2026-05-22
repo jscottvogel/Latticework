@@ -25,8 +25,8 @@ function App() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const { data: runs, errors: runErrs } = await client.models.WeeklyRun.list({ limit: 10 });
-        const { data: rolling, errors: rollingErrs } = await client.models.RollingScore.list({ limit: 100 });
+        const { data: runs, errors: runErrs } = await client.models.WeeklyRun.list({ limit: 1000 });
+        const { data: rolling, errors: rollingErrs } = await client.models.RollingScore.list({ limit: 1000 });
         
         const allErrs = [...(runErrs || []), ...(rollingErrs || [])];
         if (allErrs.length > 0) {
@@ -40,27 +40,52 @@ function App() {
         // Sort runs by createdAt descending
         const sortedRuns = [...validRuns].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
-        // Fetch only scores for the latest run
+        // Fetch scores for the last 4 runs to build history
         let validScores = [];
+        let historicalTrendData = [];
+
         if (sortedRuns.length > 0) {
-          const latestRunId = sortedRuns[0].runId;
-          const { data: scores, errors: scoreErrs } = await client.models.StockScore.list({ 
-            filter: { runId: { eq: latestRunId } },
-            limit: 100 
-          });
+          const last4Runs = sortedRuns.slice(0, 4);
           
-          if (scoreErrs?.length > 0) {
-            console.error('StockScore mapping errors:', scoreErrs);
-          }
+          const scoresPromises = last4Runs.map(run => 
+            client.models.StockScore.list({ 
+              filter: { runId: { eq: run.runId } },
+              limit: 1000 
+            })
+          );
           
-          validScores = (scores || []).filter(s => s !== null && s.ticker && s.createdAt);
+          const scoresResults = await Promise.all(scoresPromises);
+          
+          // Latest valid scores are in the first result (since last4Runs[0] is the newest)
+          validScores = (scoresResults[0].data || []).filter(s => s !== null && s.ticker && s.createdAt);
           validScores.sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0));
+          
+          // Get the top 10 tickers from the latest run to track their trends
+          const top10Tickers = validScores.slice(0, 10).map(s => s.ticker);
+          
+          // Build history data from oldest to newest (reverse order)
+          historicalTrendData = last4Runs.slice().reverse().map(run => {
+            const runDateStr = run.runDate || new Date(run.createdAt).toLocaleDateString();
+            const dataPoint = { week: runDateStr };
+            
+            const runIndex = last4Runs.findIndex(r => r.runId === run.runId);
+            const runScores = scoresResults[runIndex].data || [];
+            
+            top10Tickers.forEach(ticker => {
+              const scoreEntry = runScores.find(s => s.ticker === ticker);
+              if (scoreEntry && scoreEntry.compositeScore != null) {
+                dataPoint[ticker] = parseFloat(scoreEntry.compositeScore.toFixed(2));
+              }
+            });
+            
+            return dataPoint;
+          });
         }
 
         setWeeklyRuns(sortedRuns);
         setStockScores(validScores);
         setRollingScores(validRolling);
-        setTrendData([]); // No TrendData model available yet
+        setTrendData(historicalTrendData);
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
