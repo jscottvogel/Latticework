@@ -218,6 +218,7 @@ def handler(event, context):
         news_summary = candidate.get('news_summary', 'No recent news.')
         
         result = score_stock(metrics, news_summary, api_key)
+        result['sector'] = metrics.get('sector')
         scores.append(result)
         
         in_tok = result.get('input_tokens', 0)
@@ -258,6 +259,7 @@ def handler(event, context):
                     'runId': run_id,
                     'ticker': s['ticker'],
                     'companyName': s.get('company_name'),
+                    'sector': s.get('sector'),
                     'scoreMoat': to_dec(s.get('scores', {}).get('moat')),
                     'scoreFinancialHealth': to_dec(s.get('scores', {}).get('financial_health')),
                     'scoreManagement': to_dec(s.get('scores', {}).get('management')),

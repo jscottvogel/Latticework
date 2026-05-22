@@ -49,7 +49,7 @@ def send_alert(subject, message):
         except Exception as e:
             print(f"Failed to send SNS alert: {e}")
 
-def update_rolling_scores(run_id, current_scores):
+def update_rolling_scores(run_id, current_scores, candidates=None):
     dynamodb = boto3.resource('dynamodb')
     table_name = os.environ.get('DYNAMODB_TABLE_ROLLING_SCORES')
     if not table_name:
@@ -58,77 +58,186 @@ def update_rolling_scores(run_id, current_scores):
     table = dynamodb.Table(table_name)
     now_iso = datetime.now(timezone.utc).isoformat()
     
-    # 1. Fetch all existing RollingScores
+    # Normalize current_scores to camelCase
+    candidate_map = {}
+    if candidates:
+        candidate_map = {c['ticker']: c for c in candidates}
+        
+    normalized_scores = []
+    for s in current_scores:
+        ticker = s['ticker']
+        cand = candidate_map.get(ticker, {})
+        metrics = cand.get('metrics', {})
+        
+        normalized = {
+            'ticker': ticker,
+            'companyName': s.get('company_name') or metrics.get('name') or cand.get('companyName') or s.get('companyName'),
+            'sector': metrics.get('sector') or cand.get('sector') or s.get('sector'),
+            'compositeScore': s.get('composite_score') or s.get('compositeScore') or 0,
+            'verdict': s.get('verdict'),
+            'oneLineThesis': s.get('one_line_thesis') or s.get('oneLineThesis') or 'No thesis.',
+            'rankThisWeek': s.get('rank_this_week') or s.get('rankThisWeek')
+        }
+        normalized_scores.append(normalized)
+        
+    # Fetch completed runs
+    runs_table_name = os.environ.get('DYNAMODB_TABLE_WEEKLY_RUNS')
+    runs_table = dynamodb.Table(runs_table_name)
+    runs_response = runs_table.scan(
+        FilterExpression="#s = :status",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={":status": "COMPLETE"}
+    )
+    completed_runs = runs_response.get('Items', [])
+    completed_runs.sort(key=lambda x: x['runId'], reverse=True)
+    
+    # Get last 28 runs: current run plus the last 27 completed runs
+    recent_run_ids = [run_id]
+    for r in completed_runs:
+        if r['runId'] != run_id:
+            recent_run_ids.append(r['runId'])
+            if len(recent_run_ids) == 28:
+                break
+                
+    scores_table_name = os.environ.get('DYNAMODB_TABLE_STOCK_SCORES')
+    scores_table = dynamodb.Table(scores_table_name)
+    
+    # Map runId -> ticker -> score_item
+    scores_by_run_and_ticker = {}
+    scores_by_run_and_ticker[run_id] = {s['ticker']: s for s in normalized_scores}
+    
+    ticker_metadata = {}
+    for s in normalized_scores:
+        ticker = s['ticker']
+        ticker_metadata[ticker] = {
+            'companyName': s.get('companyName'),
+            'sector': s.get('sector'),
+            'latestThesis': s.get('oneLineThesis'),
+            'latestVerdict': s.get('verdict'),
+            'lastSeen': run_id,
+            'compositeScore': float(s.get('compositeScore', 0))
+        }
+        
+    for rid in recent_run_ids:
+        if rid == run_id:
+            continue
+        try:
+            res = scores_table.query(
+                KeyConditionExpression="runId = :rid",
+                ExpressionAttributeValues={":rid": rid}
+            )
+            run_scores = res.get('Items', [])
+            if not run_scores:
+                continue
+                
+            # Normalize to camelCase
+            norm_run_scores = []
+            for s in run_scores:
+                norm_run_scores.append({
+                    'ticker': s['ticker'],
+                    'companyName': s.get('companyName') or s.get('company_name'),
+                    'sector': s.get('sector'),
+                    'compositeScore': float(s.get('compositeScore') or s.get('composite_score') or 0),
+                    'verdict': s.get('verdict'),
+                    'oneLineThesis': s.get('oneLineThesis') or s.get('one_line_thesis') or 'No thesis.',
+                    'rankThisWeek': s.get('rankThisWeek') or s.get('rank_this_week')
+                })
+                
+            scores_by_run_and_ticker[rid] = {s['ticker']: s for s in norm_run_scores}
+            
+            for s in norm_run_scores:
+                ticker = s['ticker']
+                if ticker not in ticker_metadata:
+                    ticker_metadata[ticker] = {
+                        'companyName': s.get('companyName'),
+                        'sector': s.get('sector'),
+                        'latestThesis': s.get('oneLineThesis'),
+                        'latestVerdict': s.get('verdict'),
+                        'lastSeen': rid,
+                        'compositeScore': s.get('compositeScore')
+                    }
+        except Exception as e:
+            print(f"Warning: Failed to fetch scores for run {rid}: {e}")
+            
+    # Calculate top 10 for each run
+    top_10_by_run = {}
+    for rid, ticker_map in scores_by_run_and_ticker.items():
+        sorted_tickers = sorted(ticker_map.keys(), key=lambda t: float(ticker_map[t].get('compositeScore', 0)), reverse=True)
+        top_10_by_run[rid] = set(sorted_tickers[:10])
+        
+    # Fetch existing RollingScores
     response = table.scan()
     all_rolling = {item['ticker']: item for item in response.get('Items', [])}
     
-    # 2. Process current week's scores
-    current_tickers = set()
-    for s in current_scores:
-        ticker = s['ticker']
-        current_tickers.add(ticker)
-        
-        record = all_rolling.get(ticker, {
-            'ticker': ticker,
-            'companyName': s.get('companyName'),
-            'sector': s.get('sector'),
-            'scoreHistory': [],
-            'createdAt': now_iso
-        })
-        
-        history = record.get('scoreHistory', [])
-        # Add this week's score
-        import decimal
-        history.append({
-            'runId': run_id,
-            'compositeScore': decimal.Decimal(str(s.get('compositeScore', 0))),
-            'verdict': s.get('verdict')
-        })
-        # Keep only last 4 weeks
-        history = history[-4:]
-        record['scoreHistory'] = history
-        
-        # Recalculate
-        appearances = len(history)
-        avg_score = sum(h['compositeScore'] for h in history) / appearances if appearances > 0 else 0
-        investigate_count = sum(1 for h in history if h['verdict'] == 'INVESTIGATE')
-        is_investable = appearances >= 3 and avg_score >= 7.0
-        
-        record['appearancesLast4Weeks'] = appearances
-        record['avgCompositeScore'] = avg_score
-        record['investigateCount'] = investigate_count
-        record['isInvestable'] = is_investable
-        record['latestThesis'] = s.get('oneLineThesis')
-        record['latestVerdict'] = s.get('verdict')
-        record['lastSeen'] = run_id
-        record['updatedAt'] = now_iso
-        record['__typename'] = 'RollingScore'
-        
-        all_rolling[ticker] = record
-        
-    # 3. Process stocks that dropped off this week
-    dropped_tickers = set(all_rolling.keys()) - current_tickers
-    for ticker in dropped_tickers:
-        record = all_rolling[ticker]
-        # Keep only last 4 weeks (meaning drop oldest if 4 exist, but since it didn't appear this week,
-        # we might just do nothing, or we explicitly enforce a rolling 4-week window based on runId parsing.
-        # For simplicity, if they aren't scored this week, their 'appearances' should naturally degrade over time
-        # if we parse the runIds. For a true 4-week window without parsing, we just leave the history untouched
-        # but mark them as not seen this week. 
-        # The prompt says: "Remove this week from their history (they dropped off the list)."
-        # Actually, if we just want to track appearances over the last 4 runs, we need the runIds of the last 4 runs.
-        # For now, we will simply set isInvestable to False if they drop off to be safe.
-        record['isInvestable'] = False
-        record['updatedAt'] = now_iso
-        record['__typename'] = 'RollingScore'
-        
-    # 4. Write back to DynamoDB
+    all_tickers = set(all_rolling.keys()) | set(ticker_metadata.keys())
+    
     import decimal
     with table.batch_writer() as batch:
-        for ticker, item in all_rolling.items():
-            item_to_put = dict(item)
-            item_to_put['avgCompositeScore'] = decimal.Decimal(str(item.get('avgCompositeScore', 0)))
-            batch.put_item(Item=item_to_put)
+        for ticker in all_tickers:
+            history = []
+            appearances = 0
+            investigate_count = 0
+            scores_for_avg = []
+            
+            for rid in reversed(recent_run_ids):
+                run_data = scores_by_run_and_ticker.get(rid, {})
+                if ticker in run_data:
+                    s = run_data[ticker]
+                    comp_score = float(s.get('compositeScore', 0))
+                    verdict = s.get('verdict')
+                    
+                    if ticker in top_10_by_run.get(rid, set()):
+                        appearances += 1
+                        
+                    if verdict == 'INVESTIGATE':
+                        investigate_count += 1
+                        
+                    scores_for_avg.append(comp_score)
+                    history.append({
+                        'runId': rid,
+                        'compositeScore': decimal.Decimal(str(comp_score)),
+                        'verdict': verdict
+                    })
+                    
+            # Keep history to last 28 runs
+            history = history[-28:]
+            
+            # Recalculate
+            avg_score = sum(scores_for_avg) / len(scores_for_avg) if scores_for_avg else 0.0
+            is_investable = appearances >= 28
+            
+            meta = ticker_metadata.get(ticker, {})
+            existing = all_rolling.get(ticker, {})
+            
+            company_name = meta.get('companyName') or existing.get('companyName')
+            sector = meta.get('sector') or existing.get('sector')
+            latest_thesis = meta.get('latestThesis') or existing.get('latestThesis')
+            latest_verdict = meta.get('latestVerdict') or existing.get('latestVerdict')
+            last_seen = meta.get('lastSeen') or existing.get('lastSeen')
+            
+            record = {
+                'ticker': ticker,
+                'companyName': company_name,
+                'sector': sector,
+                'scoreHistory': history,
+                'appearancesLast4Weeks': appearances,
+                'avgCompositeScore': decimal.Decimal(str(avg_score)),
+                'investigateCount': investigate_count,
+                'isInvestable': is_investable,
+                'latestThesis': latest_thesis,
+                'latestVerdict': latest_verdict,
+                'lastSeen': last_seen,
+                'updatedAt': now_iso,
+                '__typename': 'RollingScore'
+            }
+            
+            if ticker in all_rolling:
+                record['createdAt'] = all_rolling[ticker].get('createdAt', now_iso)
+            else:
+                record['createdAt'] = now_iso
+                
+            batch.put_item(Item=record)
+
 
 def export_dashboard_to_s3(run_id, top_scores):
     s3 = boto3.client('s3')
@@ -246,7 +355,7 @@ def handler(event, context):
 
         # Step 3: News
         print('Step 3/5: Collecting news...')
-        news_payload = [{'ticker': c['ticker'], 'company_name': c.get('companyName')} for c in candidates]
+        news_payload = [{'ticker': c['ticker'], 'company_name': c.get('metrics', {}).get('name') or c.get('companyName')} for c in candidates]
         news_result = invoke_lambda('NEWS_FETCH_FUNCTION_NAME', {'run_id': run_id, 'candidates': news_payload})
         news = news_result.get('news', {})
         
@@ -273,7 +382,7 @@ def handler(event, context):
         
         # Update rolling
         print('Updating rolling scores...')
-        update_rolling_scores(run_id, scores)
+        update_rolling_scores(run_id, scores, candidates)
         
         # Export
         print('Exporting dashboard...')

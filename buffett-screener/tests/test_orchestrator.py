@@ -26,6 +26,18 @@ def setup_aws(env_setup):
             BillingMode='PAY_PER_REQUEST'
         )
         dynamodb.create_table(
+            TableName='TestStockScores',
+            KeySchema=[
+                {'AttributeName': 'runId', 'KeyType': 'HASH'},
+                {'AttributeName': 'ticker', 'KeyType': 'RANGE'}
+            ],
+            AttributeDefinitions=[
+                {'AttributeName': 'runId', 'AttributeType': 'S'},
+                {'AttributeName': 'ticker', 'AttributeType': 'S'}
+            ],
+            BillingMode='PAY_PER_REQUEST'
+        )
+        dynamodb.create_table(
             TableName='TestRollingScores',
             KeySchema=[{'AttributeName': 'ticker', 'KeyType': 'HASH'}],
             AttributeDefinitions=[{'AttributeName': 'ticker', 'AttributeType': 'S'}],
@@ -43,7 +55,7 @@ def setup_aws(env_setup):
 def test_get_run_id():
     run_id = orchestrator.get_run_id()
     assert run_id.startswith('202')
-    assert '-W' in run_id
+    assert '-D' in run_id
 
 @patch('orchestrator.invoke_lambda')
 def test_handler_dry_run(mock_invoke, setup_aws):
@@ -113,3 +125,83 @@ def test_handler_failure(mock_invoke, setup_aws):
     runs = runs_table.scan()['Items']
     assert runs[0]['status'] == 'FAILED'
     assert runs[0]['errorMessage'] == 'Test Failure'
+
+def test_update_rolling_scores_28_days(setup_aws):
+    dynamodb, s3, sns = setup_aws
+    runs_table = dynamodb.Table('TestWeeklyRuns')
+    scores_table = dynamodb.Table('TestStockScores')
+    rolling_table = dynamodb.Table('TestRollingScores')
+    
+    # Seed 27 completed runs in the database plus the 28th run
+    for i in range(1, 28):
+        run_id = f'2026-D{i:03d}'
+        runs_table.put_item(Item={
+            'runId': run_id,
+            'status': 'COMPLETE',
+            'runDate': f'2026-05-{i:02d}'
+        })
+        
+        # AAPL is always in the top 10.
+        # MSFT is only in runs 2 to 28 (27 appearances).
+        scores_table.put_item(Item={
+            'runId': run_id,
+            'ticker': 'AAPL',
+            'companyName': 'Apple Inc.',
+            'sector': 'Technology',
+            'compositeScore': decimal.Decimal('9.0'),
+            'verdict': 'INVESTIGATE',
+            'oneLineThesis': 'Great company.',
+            'rankThisWeek': 1
+        })
+        
+        if i > 1:
+            scores_table.put_item(Item={
+                'runId': run_id,
+                'ticker': 'MSFT',
+                'companyName': 'Microsoft Corp.',
+                'sector': 'Technology',
+                'compositeScore': decimal.Decimal('8.5'),
+                'verdict': 'INVESTIGATE',
+                'oneLineThesis': 'Solid enterprise.',
+                'rankThisWeek': 2
+            })
+            
+    # Now call update_rolling_scores for the 28th run: '2026-D028'
+    current_scores = [
+        {
+            'ticker': 'AAPL',
+            'company_name': 'Apple Inc.',
+            'composite_score': 9.0,
+            'verdict': 'INVESTIGATE',
+            'one_line_thesis': 'Great company.',
+            'rank_this_week': 1
+        },
+        {
+            'ticker': 'MSFT',
+            'company_name': 'Microsoft Corp.',
+            'composite_score': 8.5,
+            'verdict': 'INVESTIGATE',
+            'one_line_thesis': 'Solid enterprise.',
+            'rank_this_week': 2
+        }
+    ]
+    
+    orchestrator.update_rolling_scores('2026-D028', current_scores, candidates=[])
+    
+    # Check results in TestRollingScores
+    rolling_items = rolling_table.scan()['Items']
+    rolling_map = {item['ticker']: item for item in rolling_items}
+    
+    assert 'AAPL' in rolling_map
+    assert 'MSFT' in rolling_map
+    
+    # AAPL: 28 appearances -> isInvestable = True
+    assert rolling_map['AAPL']['appearancesLast4Weeks'] == 28
+    assert rolling_map['AAPL']['isInvestable'] is True
+    assert len(rolling_map['AAPL']['scoreHistory']) == 28
+    
+    # MSFT: 27 appearances -> isInvestable = False
+    assert rolling_map['MSFT']['appearancesLast4Weeks'] == 27
+    assert rolling_map['MSFT']['isInvestable'] is False
+    assert len(rolling_map['MSFT']['scoreHistory']) == 27
+

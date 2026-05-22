@@ -25,7 +25,7 @@ export default function WeeklyLeaderboard({ stockScores }) {
 
   return (
     <div className="table-container">
-      <h2>Weekly Leaderboard</h2>
+      <h2>Daily Leaderboard</h2>
       <p className="subtitle">Latest AI scoring and quantitative results.</p>
       
       <table className="data-table">
@@ -46,7 +46,7 @@ export default function WeeklyLeaderboard({ stockScores }) {
         </thead>
         <tbody>
           {sorted.length === 0 && (
-            <tr><td colSpan="11" className="empty-state">No scores available for this week.</td></tr>
+            <tr><td colSpan="11" className="empty-state">No scores available for this run.</td></tr>
           )}
           {sorted.map((score, index) => (
             <React.Fragment key={score.ticker}>

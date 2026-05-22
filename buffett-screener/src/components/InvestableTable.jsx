@@ -14,15 +14,15 @@ export default function InvestableTable({ rollingScores }) {
   };
 
   const getAppearanceColor = (count) => {
-    if (count === 4) return 'highlight-green';
-    if (count === 3) return 'highlight-amber';
+    if (count >= 28) return 'highlight-green';
+    if (count >= 25) return 'highlight-amber';
     return '';
   };
 
   return (
     <div className="table-container">
       <h2>Investable Candidates</h2>
-      <p className="subtitle">Consistently in the top 20 for at least 3 of the last 4 weeks.</p>
+      <p className="subtitle">Consistently in the top 10 for all daily runs over the last 4 weeks (28 days).</p>
       
       <table className="data-table">
         <thead>
@@ -30,8 +30,8 @@ export default function InvestableTable({ rollingScores }) {
             <th title="Current rank based on average composite score">Rank</th>
             <th title="Stock ticker symbol">Ticker</th>
             <th title="Company name">Company</th>
-            <th title="Number of appearances in the top 20 over the last 4 weeks">Appearances</th>
-            <th title="Average AI-generated composite score over recent weeks">Avg Score</th>
+            <th title="Number of appearances in the top 10 over the last 28 days">Appearances</th>
+            <th title="Average AI-generated composite score over recent runs">Avg Score</th>
             <th title="Number of times flagged with an INVESTIGATE verdict">Inv. Count</th>
             <th title="Most recent single-line thesis from the AI">Latest Thesis</th>
             <th title="Current investability status">Status</th>
@@ -48,7 +48,7 @@ export default function InvestableTable({ rollingScores }) {
                 <td className="fw-bold">{score.ticker}</td>
                 <td>{score.companyName}</td>
                 <td className={getAppearanceColor(score.appearancesLast4Weeks)}>
-                  {score.appearancesLast4Weeks}/4
+                  {score.appearancesLast4Weeks}/28
                 </td>
                 <td>{score.avgCompositeScore?.toFixed(1)}</td>
                 <td>{score.investigateCount}</td>

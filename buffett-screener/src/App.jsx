@@ -155,7 +155,7 @@ function App() {
             className={`tab ${activeTab === 'thisWeek' ? 'active' : ''}`}
             onClick={() => setActiveTab('thisWeek')}
           >
-            This Week
+            Latest Run
           </button>
           <button 
             className={`tab ${activeTab === 'history' ? 'active' : ''}`}
