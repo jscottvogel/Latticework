@@ -173,6 +173,35 @@ def handler(event, context):
     dynamodb = boto3.resource('dynamodb')
     runs_table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE_WEEKLY_RUNS'))
     
+    # Determine previous top 10 tickers from LAST WEEK (exclude current week)
+    previous_top_tickers = []
+    try:
+        scores_table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE_STOCK_SCORES'))
+        response = runs_table.scan(
+            FilterExpression="#s = :status",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":status": "COMPLETE"}
+        )
+        completed_runs = response.get('Items', [])
+        
+        # Exclude any runs from the current week to force it to look at last week
+        completed_runs = [r for r in completed_runs if r['runId'] != run_id]
+        
+        if completed_runs:
+            completed_runs.sort(key=lambda x: x['runId'], reverse=True)
+            last_run_id = completed_runs[0]['runId']
+            
+            res = scores_table.query(
+                KeyConditionExpression="runId = :rid",
+                ExpressionAttributeValues={":rid": last_run_id}
+            )
+            last_scores = res.get('Items', [])
+            last_scores.sort(key=lambda x: float(x.get('compositeScore', 0)), reverse=True)
+            previous_top_tickers = [s['ticker'] for s in last_scores[:10]]
+            print(f"Carrying over top 10 tickers from run {last_run_id}: {previous_top_tickers}")
+    except Exception as e:
+        print(f"Warning: Failed to fetch previous top tickers: {e}")
+        
     now_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
     runs_table.put_item(Item={
         'runId': run_id,
@@ -186,35 +215,6 @@ def handler(event, context):
     try:
         # Step 1: Fetch
         print('Step 1/5: Fetching financial data...')
-        
-        # Determine previous top 10 tickers to carry over
-        previous_top_tickers = []
-        try:
-            scores_table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE_STOCK_SCORES'))
-            response = runs_table.scan(
-                FilterExpression="#s = :status",
-                ExpressionAttributeNames={"#s": "status"},
-                ExpressionAttributeValues={":status": "COMPLETE"}
-            )
-            completed_runs = response.get('Items', [])
-            
-            # Exclude the current run_id so we truly get the PREVIOUS run
-            completed_runs = [r for r in completed_runs if r['runId'] != run_id]
-            
-            if completed_runs:
-                completed_runs.sort(key=lambda x: x['runId'], reverse=True)
-                last_run_id = completed_runs[0]['runId']
-                
-                res = scores_table.query(
-                    KeyConditionExpression="runId = :rid",
-                    ExpressionAttributeValues={":rid": last_run_id}
-                )
-                last_scores = res.get('Items', [])
-                last_scores.sort(key=lambda x: float(x.get('compositeScore', 0)), reverse=True)
-                previous_top_tickers = [s['ticker'] for s in last_scores[:10]]
-                print(f"Carrying over top 10 tickers from run {last_run_id}: {previous_top_tickers}")
-        except Exception as e:
-            print(f"Warning: Failed to fetch previous top tickers: {e}")
 
         fetch_result = invoke_lambda('DATA_FETCH_FUNCTION_NAME', {
             'run_id': run_id, 
@@ -226,7 +226,11 @@ def handler(event, context):
         
         # Step 2: Quant
         print('Step 2/5: Running quantitative filter...')
-        filter_result = invoke_lambda('QUANT_FILTER_FUNCTION_NAME', {'run_id': run_id, 's3_metrics_key': s3_key})
+        filter_result = invoke_lambda('QUANT_FILTER_FUNCTION_NAME', {
+            'run_id': run_id, 
+            's3_metrics_key': s3_key,
+            'previous_top_tickers': previous_top_tickers
+        })
         candidates = filter_result.get('candidates', [])
         print(f'Quant filter: {len(metrics)} -> {len(candidates)} candidates')
         

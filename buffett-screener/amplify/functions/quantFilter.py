@@ -55,13 +55,16 @@ def score_stock(metrics):
         'flags_failed': flags_failed
     }
 
-def filter_candidates(all_metrics):
+def filter_candidates(all_metrics, previous_top_tickers=[]):
     results = []
     for metrics in all_metrics:
         evaluation = score_stock(metrics)
-        if evaluation['passes']:
+        ticker = metrics.get('ticker')
+        is_previous_winner = ticker in previous_top_tickers
+        
+        if evaluation['passes'] or is_previous_winner:
             results.append({
-                'ticker': metrics.get('ticker'),
+                'ticker': ticker,
                 'metrics': metrics,
                 'quant_score': evaluation['score'],
                 'flags_passed': evaluation['flags_passed'],
@@ -97,7 +100,8 @@ def handler(event, context):
         print(f"Failed to read metrics from S3: {e}")
         return {'candidates': []}
         
-    candidates = filter_candidates(all_metrics)
+    previous_top_tickers = event.get('previous_top_tickers', [])
+    candidates = filter_candidates(all_metrics, previous_top_tickers)
     
     # Save candidates to DynamoDB (StockScores table) if needed, 
     # or pass them to the next Lambda (aiScorer).
