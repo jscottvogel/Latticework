@@ -186,7 +186,36 @@ def handler(event, context):
     try:
         # Step 1: Fetch
         print('Step 1/5: Fetching financial data...')
-        fetch_result = invoke_lambda('DATA_FETCH_FUNCTION_NAME', {'run_id': run_id})
+        
+        # Determine previous top 10 tickers to carry over
+        previous_top_tickers = []
+        try:
+            scores_table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE_STOCK_SCORES'))
+            response = runs_table.scan(
+                FilterExpression="#s = :status",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":status": "COMPLETE"}
+            )
+            completed_runs = response.get('Items', [])
+            if completed_runs:
+                completed_runs.sort(key=lambda x: x['runId'], reverse=True)
+                last_run_id = completed_runs[0]['runId']
+                
+                res = scores_table.query(
+                    KeyConditionExpression="runId = :rid",
+                    ExpressionAttributeValues={":rid": last_run_id}
+                )
+                last_scores = res.get('Items', [])
+                last_scores.sort(key=lambda x: float(x.get('compositeScore', 0)), reverse=True)
+                previous_top_tickers = [s['ticker'] for s in last_scores[:10]]
+                print(f"Carrying over top 10 tickers from run {last_run_id}: {previous_top_tickers}")
+        except Exception as e:
+            print(f"Warning: Failed to fetch previous top tickers: {e}")
+
+        fetch_result = invoke_lambda('DATA_FETCH_FUNCTION_NAME', {
+            'run_id': run_id, 
+            'previous_top_tickers': previous_top_tickers
+        })
         metrics = fetch_result.get('metrics', [])
         s3_key = fetch_result.get('s3_key')
         print(f'Fetched {len(metrics)} stocks')

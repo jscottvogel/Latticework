@@ -259,6 +259,16 @@ def handler(event, context):
             raise ValueError("Failed to fetch S&P 500 tickers. Aborting run.")
         tickers = get_ticker_group(all_tickers, run_id)
         
+        # Append previous week's top tickers so they are continuously evaluated
+        previous_top_tickers = event.get('previous_top_tickers', [])
+        if previous_top_tickers:
+            # Combine and remove duplicates while preserving order
+            seen = set(tickers)
+            for pt in previous_top_tickers:
+                if pt not in seen:
+                    tickers.append(pt)
+                    seen.add(pt)
+        
     print(f"Fetching data for {len(tickers)} tickers in run {run_id}...")
     
     all_metrics = []
