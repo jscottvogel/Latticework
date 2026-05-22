@@ -36,7 +36,7 @@ export default function TrendChart({ historyData }) {
 
   return (
     <div className="chart-wrapper" style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', marginBottom: '2rem' }}>
-      <h2 style={{ color: '#1A6B3C', marginTop: 0 }}>Top 10 Score Trends (Last 4 Weeks)</h2>
+      <h2 style={{ color: '#1A6B3C', marginTop: 0 }}>Top 10 Score Trends (Last 4 Runs)</h2>
       
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
         {tickers.map((ticker, idx) => (

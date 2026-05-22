@@ -75,13 +75,13 @@ def get_sp500_tickers(s3_client, bucket_name):
         return []
 
 def get_ticker_group(all_tickers, run_id):
-    # run_id format: YYYY-WNN, extract NN
+    # run_id format: YYYY-DNNN, extract NNN
     try:
-        week_num = int(run_id.split('-W')[-1])
+        day_num = int(run_id.split('-D')[-1])
     except:
-        week_num = 1
+        day_num = 1
     
-    group_idx = week_num % 10
+    group_idx = day_num % 10
     group_size = len(all_tickers) // 10
     start = group_idx * group_size
     # If it's the last group, take all remaining

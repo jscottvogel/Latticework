@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 def get_run_id():
     now = datetime.now(timezone.utc)
-    week = now.isocalendar()[1]
-    return f'{now.year}-W{week:02d}'
+    day_of_year = now.timetuple().tm_yday
+    return f'{now.year}-D{day_of_year:03d}'
 
 def invoke_lambda(function_name_env_key, payload):
     function_arn = os.environ.get(function_name_env_key)
