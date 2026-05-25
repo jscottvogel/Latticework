@@ -3,9 +3,25 @@ import './TableStyles.css';
 
 export default function WeeklyLeaderboard({ stockScores }) {
   const [expandedRow, setExpandedRow] = useState(null);
+  const [filterType, setFilterType] = useState('active'); // 'active' (default) or 'all'
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Sort by composite score desc
   const sorted = [...stockScores].sort((a, b) => b.compositeScore - a.compositeScore);
+
+  // Search and filter logic
+  const filtered = sorted.filter(score => {
+    const matchesSearch = 
+      score.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (score.companyName && score.companyName.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+    const matchesFilter = 
+      filterType === 'all' || 
+      score.verdict === 'INVESTIGATE' || 
+      score.verdict === 'MONITOR';
+      
+    return matchesSearch && matchesFilter;
+  });
 
   const toggleRow = (ticker) => {
     setExpandedRow(expandedRow === ticker ? null : ticker);
@@ -28,6 +44,98 @@ export default function WeeklyLeaderboard({ stockScores }) {
       <h2>Daily Leaderboard</h2>
       <p className="subtitle">Latest AI scoring and quantitative results.</p>
       
+      {/* Premium Search and Filtering Controls */}
+      <div className="table-controls" style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '1.5rem', 
+        gap: '1rem', 
+        flexWrap: 'wrap' 
+      }}>
+        <div className="search-wrapper" style={{ position: 'relative', flexGrow: 1, maxWidth: '300px' }}>
+          <input 
+            type="text" 
+            placeholder="Search ticker or company..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 16px 10px 38px',
+              borderRadius: '24px',
+              border: '1px solid #e0e0e0',
+              fontSize: '0.9rem',
+              outline: 'none',
+              transition: 'all 0.2s ease',
+              boxSizing: 'border-box',
+              backgroundColor: '#f8f9fa'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#1A6B3C';
+              e.target.style.backgroundColor = '#ffffff';
+              e.target.style.boxShadow = '0 0 0 3px rgba(26, 107, 60, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e0e0e0';
+              e.target.style.backgroundColor = '#f8f9fa';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+          <span style={{ 
+            position: 'absolute', 
+            left: '14px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
+            color: '#888',
+            fontSize: '1.1rem',
+            pointerEvents: 'none'
+          }}>
+            🔍
+          </span>
+        </div>
+        
+        <div className="filter-buttons" style={{ 
+          display: 'flex', 
+          gap: '4px', 
+          backgroundColor: '#f1f3f4', 
+          padding: '4px', 
+          borderRadius: '24px' 
+        }}>
+          <button 
+            onClick={() => setFilterType('active')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              backgroundColor: filterType === 'active' ? '#1A6B3C' : 'transparent',
+              color: filterType === 'active' ? 'white' : '#5f6368',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Investigate & Monitor
+          </button>
+          <button 
+            onClick={() => setFilterType('all')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              backgroundColor: filterType === 'all' ? '#1A6B3C' : 'transparent',
+              color: filterType === 'all' ? 'white' : '#5f6368',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            All Screened ({sorted.length})
+          </button>
+        </div>
+      </div>
+
       <table className="data-table">
         <thead>
           <tr>
@@ -45,10 +153,10 @@ export default function WeeklyLeaderboard({ stockScores }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.length === 0 && (
-            <tr><td colSpan="11" className="empty-state">No scores available for this run.</td></tr>
+          {filtered.length === 0 && (
+            <tr><td colSpan="11" className="empty-state">No matching scores found.</td></tr>
           )}
-          {sorted.map((score, index) => (
+          {filtered.map((score, index) => (
             <React.Fragment key={score.ticker}>
               <tr onClick={() => toggleRow(score.ticker)} className="clickable-row">
                 <td>#{index + 1}</td>

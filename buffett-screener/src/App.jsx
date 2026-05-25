@@ -44,8 +44,11 @@ function App() {
         let validScores = [];
         let historicalTrendData = [];
 
-        if (sortedRuns.length > 0) {
-          const last4Runs = sortedRuns.slice(0, 4);
+        // Filter runs that actually completed and have candidates scored for the history chart
+        const completedRunsWithData = sortedRuns.filter(r => r.status === 'COMPLETE' && r.candidatesScored > 0);
+
+        if (completedRunsWithData.length > 0) {
+          const last4Runs = completedRunsWithData.slice(0, 4);
           
           const scoresPromises = last4Runs.map(run => 
             client.models.StockScore.list({ 
@@ -60,8 +63,11 @@ function App() {
           validScores = (scoresResults[0].data || []).filter(s => s !== null && s.ticker && s.createdAt);
           validScores.sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0));
           
-          // Get the top 10 tickers from the latest run to track their trends
-          const top10Tickers = validScores.slice(0, 10).map(s => s.ticker);
+          // Get the top 10 tickers (excluding AVOID/INSUFFICIENT_DATA/CANNOT EVALUATE) from the latest run to track their trends
+          const top10Tickers = validScores
+            .filter(s => s.verdict === 'INVESTIGATE' || s.verdict === 'MONITOR')
+            .slice(0, 10)
+            .map(s => s.ticker);
           
           // Build history data from oldest to newest (reverse order)
           historicalTrendData = last4Runs.slice().reverse().map(run => {
@@ -177,9 +183,13 @@ function App() {
               <>
                 <WeeklyLeaderboard stockScores={stockScores} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                  {stockScores.slice(0, 3).map(score => (
-                    <ScoreCard key={score.ticker} scoreData={score} />
-                  ))}
+                  {stockScores
+                    .filter(s => s.verdict === 'INVESTIGATE' || s.verdict === 'MONITOR')
+                    .slice(0, 3)
+                    .map(score => (
+                      <ScoreCard key={score.ticker} scoreData={score} />
+                    ))
+                  }
                 </div>
               </>
             )}

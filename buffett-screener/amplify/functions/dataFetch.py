@@ -81,26 +81,46 @@ def get_ticker_group(all_tickers, run_id):
     except:
         day_num = 1
     
-    group_idx = day_num % 10
-    group_size = len(all_tickers) // 10
+    # Partition into 7 groups to ensure all stocks are evaluated at least once a week (7 days)
+    group_idx = day_num % 7
+    group_size = len(all_tickers) // 7
     start = group_idx * group_size
     # If it's the last group, take all remaining
-    end = start + group_size if group_idx < 9 else len(all_tickers)
+    end = start + group_size if group_idx < 6 else len(all_tickers)
     return all_tickers[start:end]
 
 def _fetch_av(endpoint, ticker, api_key):
     url = f"https://www.alphavantage.co/query?function={endpoint}&symbol={ticker}&apikey={api_key}"
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        start_t = time.time()
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            ms = int((time.time() - start_t) * 1000)
-            print(f"API {endpoint} {ticker} - {ms}ms - 200")
-            return data
-    except Exception as e:
-        print(f"API {endpoint} {ticker} failed: {e}")
-        return {}
+    max_retries = 3
+    retry_delay = 5  # start with 5 seconds backoff delay
+    
+    for attempt in range(max_retries):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            start_t = time.time()
+            with urllib.request.urlopen(req) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                ms = int((time.time() - start_t) * 1000)
+                
+                # Check for Alpha Vantage rate limiting warnings
+                if "Note" in data:
+                    print(f"Rate limit hit (Note) on attempt {attempt+1} for {endpoint} {ticker}: {data.get('Note')}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # exponential backoff
+                    continue
+                if "Information" in data:
+                    print(f"Rate limit hit (Information) on attempt {attempt+1} for {endpoint} {ticker}: {data.get('Information')}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+                
+                print(f"API {endpoint} {ticker} - {ms}ms - 200")
+                return data
+        except Exception as e:
+            print(f"API {endpoint} {ticker} failed on attempt {attempt+1}: {e}")
+            time.sleep(1)
+            
+    return {}
 
 def _safe_float(val):
     try:
@@ -208,8 +228,11 @@ def fetch_balance(ticker, api_key):
 
 def fetch_all_metrics(ticker, api_key):
     ov = fetch_overview(ticker, api_key)
+    time.sleep(0.5) # Sleep between requests for the same ticker to avoid sub-second rate limits
     cf = fetch_cash_flow(ticker, api_key)
+    time.sleep(0.5)
     inc = fetch_income(ticker, api_key)
+    time.sleep(0.5)
     bal = fetch_balance(ticker, api_key)
     
     # Merge logic
@@ -257,6 +280,13 @@ def handler(event, context):
         all_tickers = get_sp500_tickers(s3, s3_bucket)
         if not all_tickers:
             raise ValueError("Failed to fetch S&P 500 tickers. Aborting run.")
+            
+        # Check for limit on S&P 500 stocks (defaults to 0, which means no limit/evaluate all ~500 stocks)
+        limit_sp500 = int(os.environ.get('LIMIT_SP500_TICKERS', '0'))
+        if limit_sp500 > 0:
+            print(f"Limiting S&P 500 tickers list from {len(all_tickers)} to the first {limit_sp500} tickers.")
+            all_tickers = all_tickers[:limit_sp500]
+            
         tickers = get_ticker_group(all_tickers, run_id)
         
         # Append previous week's top tickers so they are continuously evaluated
