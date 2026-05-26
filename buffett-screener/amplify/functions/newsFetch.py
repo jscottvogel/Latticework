@@ -40,33 +40,37 @@ def get_newsapi_key():
 
 
 def _fetch_xml_rss(url):
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
-            xml_data = response.read()
-            root = ET.fromstring(xml_data)
-            items = []
-            for item in root.findall('.//item'):
-                title = item.find('title').text if item.find('title') is not None else ''
-                desc = item.find('description').text if item.find('description') is not None else ''
-                pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ''
-                
-                # Basic pubDate parsing or fallback to today
-                # A robust app might parse standard RFC 2822 dates here
-                
-                # Strip HTML from desc
-                desc = re.sub(r'<[^>]+>', '', desc).strip()
-                
-                items.append({
-                    'title': title,
-                    'summary': desc,
-                    'published': pub_date,
-                    'source': 'RSS'
-                })
-            return items
-    except Exception as e:
-        print(f"RSS fetch failed for {url}: {e}")
-        return []
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req) as response:
+                xml_data = response.read()
+                root = ET.fromstring(xml_data)
+                items = []
+                for item in root.findall('.//item'):
+                    title = item.find('title').text if item.find('title') is not None else ''
+                    desc = item.find('description').text if item.find('description') is not None else ''
+                    pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ''
+                    
+                    # Strip HTML from desc
+                    desc = re.sub(r'<[^>]+>', '', desc).strip()
+                    
+                    items.append({
+                        'title': title,
+                        'summary': desc,
+                        'published': pub_date,
+                        'source': 'RSS'
+                    })
+                return items
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"RSS fetch attempt {attempt+1} failed for {url}: {e}. Retrying in 1s...")
+                time.sleep(1)
+            else:
+                print(f"RSS fetch failed for {url} after {max_retries} attempts: {e}")
+                return []
+
 
 def fetch_rss(ticker, company_name):
     articles = []

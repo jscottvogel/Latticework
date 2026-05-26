@@ -60,3 +60,14 @@ def test_handler(mock_urlopen, mock_get_key):
     assert "Apple makes a new thing" in summary
     assert "Apple stock up" in summary
     assert summary.count("Apple makes a new thing") == 1 # Deduplicated
+
+
+@patch('urllib.request.urlopen')
+def test_fetch_xml_rss_retry_failure(mock_urlopen):
+    mock_urlopen.side_effect = Exception("HTTP Error 500: Internal Server Error")
+    with patch('time.sleep') as mock_sleep:
+        articles = newsFetch._fetch_xml_rss("https://finance.yahoo.com/rss")
+    assert articles == []
+    assert mock_urlopen.call_count == 3
+    assert mock_sleep.call_count == 2
+
