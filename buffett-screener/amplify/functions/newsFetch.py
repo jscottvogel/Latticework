@@ -18,12 +18,20 @@ def get_newsapi_key():
     client = boto3.client('secretsmanager')
     try:
         response = client.get_secret_value(SecretId='/buffett-screener/news-api-key')
-        secret_dict = json.loads(response['SecretString'])
-        _NEWS_API_KEY = secret_dict.get('key')
+        secret_string = response.get('SecretString', '')
+        try:
+            secret_dict = json.loads(secret_string)
+            if isinstance(secret_dict, dict):
+                _NEWS_API_KEY = secret_dict.get('key') or secret_dict.get('apikey') or secret_dict.get('apiKey')
+            else:
+                _NEWS_API_KEY = str(secret_dict)
+        except (json.JSONDecodeError, TypeError):
+            _NEWS_API_KEY = secret_string
         return _NEWS_API_KEY
     except Exception as e:
         print(f"Error fetching NewsAPI secret: {e}")
         return None
+
 
 def _fetch_xml_rss(url):
     try:

@@ -15,12 +15,20 @@ def get_anthropic_key():
     client = boto3.client('secretsmanager')
     try:
         response = client.get_secret_value(SecretId='/buffett-screener/anthropic-api-key')
-        secret_dict = json.loads(response['SecretString'])
-        _ANTHROPIC_KEY = secret_dict.get('key')
+        secret_string = response.get('SecretString', '')
+        try:
+            secret_dict = json.loads(secret_string)
+            if isinstance(secret_dict, dict):
+                _ANTHROPIC_KEY = secret_dict.get('key') or secret_dict.get('apikey') or secret_dict.get('apiKey')
+            else:
+                _ANTHROPIC_KEY = str(secret_dict)
+        except (json.JSONDecodeError, TypeError):
+            _ANTHROPIC_KEY = secret_string
         return _ANTHROPIC_KEY
     except Exception as e:
         print(f"Error fetching Anthropic secret: {e}")
         return None
+
 
 BUFFETT_SYSTEM_PROMPT = """You are a disciplined value investing analyst trained in the philosophy of Warren Buffett and Charlie Munger. Evaluate stocks that have passed an initial quantitative screen. Return ONLY valid JSON, no other text.
 

@@ -168,3 +168,49 @@ def test_handler_stateful_queue(mock_urlopen, mock_get_key, setup_aws):
     assert updated_queue['MSFT']['lastStatus'] == 'SUCCESS'  # because the mock urlopen returned Name "Apple Inc."
     assert updated_queue['MSFT']['lastFetched'] is not None
 
+
+@mock_aws
+def test_get_secret_json_dict_key():
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+    client.create_secret(Name='/buffett-screener/alpha-vantage-key', SecretString='{"key": "json_dict_key"}')
+    dataFetch._ALPHA_VANTAGE_KEY = None
+    key = dataFetch.get_secret('/buffett-screener/alpha-vantage-key')
+    assert key == "json_dict_key"
+
+
+@mock_aws
+def test_get_secret_json_dict_apikey():
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+    client.create_secret(Name='/buffett-screener/alpha-vantage-key', SecretString='{"apikey": "json_dict_apikey"}')
+    dataFetch._ALPHA_VANTAGE_KEY = None
+    key = dataFetch.get_secret('/buffett-screener/alpha-vantage-key')
+    assert key == "json_dict_apikey"
+
+
+@mock_aws
+def test_get_secret_json_dict_apiKey_camelCase():
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+    client.create_secret(Name='/buffett-screener/alpha-vantage-key', SecretString='{"apiKey": "json_dict_apiKey_camel"}')
+    dataFetch._ALPHA_VANTAGE_KEY = None
+    key = dataFetch.get_secret('/buffett-screener/alpha-vantage-key')
+    assert key == "json_dict_apiKey_camel"
+
+
+@mock_aws
+def test_get_secret_json_string():
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+    client.create_secret(Name='/buffett-screener/alpha-vantage-key', SecretString='"json_string_key"')
+    dataFetch._ALPHA_VANTAGE_KEY = None
+    key = dataFetch.get_secret('/buffett-screener/alpha-vantage-key')
+    assert key == "json_string_key"
+
+
+@mock_aws
+def test_get_secret_raw_string():
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+    client.create_secret(Name='/buffett-screener/alpha-vantage-key', SecretString='raw_plaintext_key_123')
+    dataFetch._ALPHA_VANTAGE_KEY = None
+    key = dataFetch.get_secret('/buffett-screener/alpha-vantage-key')
+    assert key == "raw_plaintext_key_123"
+
+

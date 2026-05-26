@@ -16,12 +16,20 @@ def get_secret(secret_name):
     client = boto3.client('secretsmanager')
     try:
         response = client.get_secret_value(SecretId=secret_name)
-        secret_dict = json.loads(response['SecretString'])
-        _ALPHA_VANTAGE_KEY = secret_dict.get('key')
+        secret_string = response.get('SecretString', '')
+        try:
+            secret_dict = json.loads(secret_string)
+            if isinstance(secret_dict, dict):
+                _ALPHA_VANTAGE_KEY = secret_dict.get('key') or secret_dict.get('apikey') or secret_dict.get('apiKey')
+            else:
+                _ALPHA_VANTAGE_KEY = str(secret_dict)
+        except (json.JSONDecodeError, TypeError):
+            _ALPHA_VANTAGE_KEY = secret_string
         return _ALPHA_VANTAGE_KEY
     except Exception as e:
         print(f"Error fetching secret: {e}")
         return None
+
 
 def get_sp500_tickers(s3_client, bucket_name):
     cache_key = 'tickers-cache/sp500_v2.json'
