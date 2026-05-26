@@ -90,7 +90,7 @@ def get_ticker_group(all_tickers, run_id):
     return all_tickers[start:end]
 
 def _fetch_av(endpoint, ticker, api_key):
-    url = f"https://www.alphavantage.co/query?function={endpoint}&symbol={ticker}&apikey={api_key}"
+    url = f"https://www.alphavantage.co/query?function={endpoint}&symbol={ticker}&entitlement=delayed&apikey={api_key}"
     max_retries = 5
     retry_delay = 60  # Sleep 60 seconds if rate limit is hit to completely reset the minute window
     
