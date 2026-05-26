@@ -11,13 +11,13 @@ export default function Header({ lastUpdated, runCost, onRunNow, isTriggering })
         <div className="header-stats" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <span className="stat">Last Updated: {lastUpdated || 'Loading...'}</span>
           <span className="stat">Run Cost: ${runCost ? runCost.toFixed(2) : '0.00'}</span>
-          <button 
+          {/* <button 
             className="run-now-btn" 
             onClick={onRunNow} 
             disabled={isTriggering}
           >
             {isTriggering ? 'Triggering...' : 'Run Process'}
-          </button>
+          </button> */}
         </div>
       </div>
     </header>
