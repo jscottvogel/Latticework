@@ -99,7 +99,7 @@ const dataFetchLambda = new lambda.Function(stack, 'DataFetch', {
   handler: 'dataFetch.handler',
   code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
   architecture: lambda.Architecture.ARM_64,
-  timeout: Duration.seconds(300), 
+  timeout: Duration.seconds(900), 
 });
 
 const quantFilterLambda = new lambda.Function(stack, 'QuantFilter', {
