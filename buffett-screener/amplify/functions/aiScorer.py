@@ -219,6 +219,7 @@ def handler(event, context):
         
         result = score_stock(metrics, news_summary, api_key)
         result['sector'] = metrics.get('sector')
+        result['metrics'] = metrics  # Preserve raw metrics for Monte Carlo
         scores.append(result)
         
         in_tok = result.get('input_tokens', 0)

@@ -91,8 +91,8 @@ def get_ticker_group(all_tickers, run_id):
 
 def _fetch_av(endpoint, ticker, api_key):
     url = f"https://www.alphavantage.co/query?function={endpoint}&symbol={ticker}&apikey={api_key}"
-    max_retries = 3
-    retry_delay = 5  # start with 5 seconds backoff delay
+    max_retries = 5
+    retry_delay = 60  # Sleep 60 seconds if rate limit is hit to completely reset the minute window
     
     for attempt in range(max_retries):
         try:
@@ -104,21 +104,19 @@ def _fetch_av(endpoint, ticker, api_key):
                 
                 # Check for Alpha Vantage rate limiting warnings
                 if "Note" in data:
-                    print(f"Rate limit hit (Note) on attempt {attempt+1} for {endpoint} {ticker}: {data.get('Note')}")
+                    print(f"Rate limit hit (Note) on attempt {attempt+1} for {endpoint} {ticker}. Sleeping {retry_delay}s: {data.get('Note')}")
                     time.sleep(retry_delay)
-                    retry_delay *= 2  # exponential backoff
                     continue
                 if "Information" in data:
-                    print(f"Rate limit hit (Information) on attempt {attempt+1} for {endpoint} {ticker}: {data.get('Information')}")
+                    print(f"Rate limit hit (Information) on attempt {attempt+1} for {endpoint} {ticker}. Sleeping {retry_delay}s: {data.get('Information')}")
                     time.sleep(retry_delay)
-                    retry_delay *= 2
                     continue
                 
                 print(f"API {endpoint} {ticker} - {ms}ms - 200")
                 return data
         except Exception as e:
             print(f"API {endpoint} {ticker} failed on attempt {attempt+1}: {e}")
-            time.sleep(1)
+            time.sleep(5)
             
     return {}
 
@@ -226,13 +224,14 @@ def fetch_balance(ticker, api_key):
         'debt_equity_calc': debt_equity
     }
 
-def fetch_all_metrics(ticker, api_key):
+def fetch_all_metrics(ticker, api_key, av_tier='premium'):
+    spacing = 15.0 if av_tier == 'free' else 0.5
     ov = fetch_overview(ticker, api_key)
-    time.sleep(0.5) # Sleep between requests for the same ticker to avoid sub-second rate limits
+    time.sleep(spacing) # Sleep between requests for the same ticker to avoid sub-second rate limits
     cf = fetch_cash_flow(ticker, api_key)
-    time.sleep(0.5)
+    time.sleep(spacing)
     inc = fetch_income(ticker, api_key)
-    time.sleep(0.5)
+    time.sleep(spacing)
     bal = fetch_balance(ticker, api_key)
     
     # Merge logic
@@ -309,7 +308,7 @@ def handler(event, context):
 
     for i, ticker in enumerate(tickers):
         print(f"Processing {ticker} ({i+1}/{len(tickers)})...")
-        metrics = fetch_all_metrics(ticker, api_key)
+        metrics = fetch_all_metrics(ticker, api_key, av_tier)
         all_metrics.append(metrics)
         
         if table:

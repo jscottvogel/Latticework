@@ -82,6 +82,7 @@ def test_handler(mock_urlopen, mock_get_key, setup_aws):
     assert len(response['scores']) == 1
     assert response['scores'][0]['composite_score'] == 8.5
     assert response['scores'][0]['verdict'] == 'INVESTIGATE'
+    assert response['scores'][0]['metrics']['peRatio'] == 20
     assert response['total_cost_usd'] > 0
     
     # Check DynamoDB
