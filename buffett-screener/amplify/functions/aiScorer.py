@@ -4,6 +4,7 @@ import urllib.error
 import os
 import boto3
 import time
+import re
 from datetime import datetime, timezone
 
 _ANTHROPIC_KEY = None
@@ -15,7 +16,9 @@ def get_anthropic_key():
     client = boto3.client('secretsmanager')
     try:
         response = client.get_secret_value(SecretId='/buffett-screener/anthropic-api-key')
-        secret_string = response.get('SecretString', '')
+        secret_string = response.get('SecretString', '').strip()
+        if not secret_string:
+            return None
         try:
             secret_dict = json.loads(secret_string)
             if isinstance(secret_dict, dict):
@@ -23,7 +26,11 @@ def get_anthropic_key():
             else:
                 _ANTHROPIC_KEY = str(secret_dict)
         except (json.JSONDecodeError, TypeError):
-            _ANTHROPIC_KEY = secret_string
+            match = re.search(r'[\'"]?(?:key|apikey|apiKey)[\'"]?\s*[:=]\s*[\'"]?([A-Za-z0-9\-]+)[\'"]?', secret_string)
+            if match:
+                _ANTHROPIC_KEY = match.group(1)
+            else:
+                _ANTHROPIC_KEY = secret_string.strip('\'"{} ')
         return _ANTHROPIC_KEY
     except Exception as e:
         print(f"Error fetching Anthropic secret: {e}")

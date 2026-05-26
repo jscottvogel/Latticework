@@ -214,3 +214,13 @@ def test_get_secret_raw_string():
     assert key == "raw_plaintext_key_123"
 
 
+@mock_aws
+def test_get_secret_malformed_json_dict():
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+    client.create_secret(Name='/buffett-screener/alpha-vantage-key', SecretString='{key:15JJCDS4OY9J7QSG}')
+    dataFetch._ALPHA_VANTAGE_KEY = None
+    key = dataFetch.get_secret('/buffett-screener/alpha-vantage-key')
+    assert key == "15JJCDS4OY9J7QSG"
+
+
+

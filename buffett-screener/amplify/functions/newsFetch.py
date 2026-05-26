@@ -18,7 +18,9 @@ def get_newsapi_key():
     client = boto3.client('secretsmanager')
     try:
         response = client.get_secret_value(SecretId='/buffett-screener/news-api-key')
-        secret_string = response.get('SecretString', '')
+        secret_string = response.get('SecretString', '').strip()
+        if not secret_string:
+            return None
         try:
             secret_dict = json.loads(secret_string)
             if isinstance(secret_dict, dict):
@@ -26,7 +28,11 @@ def get_newsapi_key():
             else:
                 _NEWS_API_KEY = str(secret_dict)
         except (json.JSONDecodeError, TypeError):
-            _NEWS_API_KEY = secret_string
+            match = re.search(r'[\'"]?(?:key|apikey|apiKey)[\'"]?\s*[:=]\s*[\'"]?([A-Za-z0-9\-]+)[\'"]?', secret_string)
+            if match:
+                _NEWS_API_KEY = match.group(1)
+            else:
+                _NEWS_API_KEY = secret_string.strip('\'"{} ')
         return _NEWS_API_KEY
     except Exception as e:
         print(f"Error fetching NewsAPI secret: {e}")
