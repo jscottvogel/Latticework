@@ -225,7 +225,7 @@ def fetch_balance(ticker, api_key):
     }
 
 def fetch_all_metrics(ticker, api_key, av_tier='premium'):
-    spacing = 15.0 if av_tier == 'free' else 0.5
+    spacing = 15.0 if av_tier == 'free' else 0.9
     ov = fetch_overview(ticker, api_key)
     time.sleep(spacing) # Sleep between requests for the same ticker to avoid sub-second rate limits
     cf = fetch_cash_flow(ticker, api_key)
@@ -274,6 +274,18 @@ def handler(event, context):
     
     api_key = get_secret('/buffett-screener/alpha-vantage-key')
     
+    # Load queue state from S3
+    queue_key = 'tickers-cache/fetch-queue_v1.json'
+    queue_state = {}
+    if s3_bucket:
+        try:
+            obj = s3.get_object(Bucket=s3_bucket, Key=queue_key)
+            queue_state = json.loads(obj['Body'].read().decode('utf-8'))
+        except s3.exceptions.NoSuchKey:
+            print("Fetch queue not found in S3, will initialize a new one.")
+        except Exception as e:
+            print(f"Failed to read fetch queue from S3: {e}")
+            
     tickers = event.get('tickers')
     if not tickers:
         all_tickers = get_sp500_tickers(s3, s3_bucket)
@@ -286,17 +298,52 @@ def handler(event, context):
             print(f"Limiting S&P 500 tickers list from {len(all_tickers)} to the first {limit_sp500} tickers.")
             all_tickers = all_tickers[:limit_sp500]
             
-        tickers = get_ticker_group(all_tickers, run_id)
+        # Initialize queue state for any tickers that aren't in it
+        for t in all_tickers:
+            if t not in queue_state:
+                queue_state[t] = {"lastFetched": None, "lastStatus": "PENDING"}
         
-        # Append previous week's top tickers so they are continuously evaluated
+        # Clean up queue state: remove any tickers no longer in all_tickers
+        all_tickers_set = set(all_tickers)
+        queue_state = {t: v for t, v in queue_state.items() if t in all_tickers_set}
+        
         previous_top_tickers = event.get('previous_top_tickers', [])
-        if previous_top_tickers:
-            # Combine and remove duplicates while preserving order
-            seen = set(tickers)
-            for pt in previous_top_tickers:
-                if pt not in seen:
-                    tickers.append(pt)
-                    seen.add(pt)
+        
+        # Define target count. Default to 1/7th of S&P 500 (approx 71 stocks)
+        target_count = len(all_tickers) // 7
+        if target_count < 10:
+            target_count = 10
+        if len(all_tickers) <= target_count:
+            target_count = len(all_tickers)
+            
+        tickers = []
+        seen = set()
+        
+        # 1. Add previous top tickers first (leaderboard priority)
+        for pt in previous_top_tickers:
+            if pt in queue_state and pt not in seen:
+                tickers.append(pt)
+                seen.add(pt)
+                
+        # 2. Add failed tickers next (retry priority)
+        def get_last_fetched_sort_key(t):
+            lf = queue_state[t].get('lastFetched')
+            return (lf is not None, lf or "")
+            
+        failed_tickers = [t for t, state in queue_state.items() if state.get('lastStatus') == 'FAILED']
+        failed_tickers.sort(key=get_last_fetched_sort_key)
+        for ft in failed_tickers:
+            if ft not in seen and len(tickers) < target_count:
+                tickers.append(ft)
+                seen.add(ft)
+                
+        # 3. Fill the remaining quota with the oldest fetched tickers (lastFetched is None/oldest first)
+        remaining_candidates = [t for t in all_tickers if t not in seen]
+        remaining_candidates.sort(key=get_last_fetched_sort_key)
+        for rt in remaining_candidates:
+            if len(tickers) < target_count:
+                tickers.append(rt)
+                seen.add(rt)
         
     print(f"Fetching data for {len(tickers)} tickers in run {run_id}...")
     
@@ -304,12 +351,28 @@ def handler(event, context):
     
     table = dynamodb.Table(db_table) if db_table else None
     
-    sleep_time = 1.0 if av_tier == 'premium' else 12.0
+    sleep_time = 0.9 if av_tier == 'premium' else 12.0
 
     for i, ticker in enumerate(tickers):
         print(f"Processing {ticker} ({i+1}/{len(tickers)})...")
         metrics = fetch_all_metrics(ticker, api_key, av_tier)
         all_metrics.append(metrics)
+        
+        # Check if the fetch succeeded
+        fetch_success = metrics.get('name') is not None
+        
+        # Update queue state
+        if s3_bucket and ticker in queue_state:
+            if fetch_success:
+                queue_state[ticker] = {
+                    "lastFetched": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+                    "lastStatus": "SUCCESS"
+                }
+            else:
+                queue_state[ticker] = {
+                    "lastFetched": queue_state[ticker].get('lastFetched'),
+                    "lastStatus": "FAILED"
+                }
         
         if table:
             # DynamoDB requires floats to be cast to Decimal. For simplicity in batch_writer, 
@@ -332,6 +395,18 @@ def handler(event, context):
             Key=s3_key,
             Body=json.dumps(all_metrics)
         )
+        
+        # Save updated queue state to S3
+        if queue_state:
+            try:
+                s3.put_object(
+                    Bucket=s3_bucket,
+                    Key=queue_key,
+                    Body=json.dumps(queue_state)
+                )
+                print("Successfully saved updated fetch queue to S3.")
+            except Exception as e:
+                print(f"Failed to save fetch queue to S3: {e}")
         
     return {
         's3_key': s3_key,

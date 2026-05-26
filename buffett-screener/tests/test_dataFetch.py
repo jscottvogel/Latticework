@@ -104,3 +104,67 @@ def test_handler(mock_urlopen, mock_get_key, setup_aws):
     items = table.scan()['Items']
     assert len(items) == 1
     assert items[0]['ticker'] == 'AAPL'
+
+@patch('dataFetch.get_secret')
+@patch('urllib.request.urlopen')
+def test_handler_stateful_queue(mock_urlopen, mock_get_key, setup_aws):
+    dynamodb, s3 = setup_aws
+    mock_get_key.return_value = "TEST_API_KEY"
+    
+    # Mock URL responses
+    def urlopen_side_effect(req, *args, **kwargs):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "Symbol": "AAPL",
+            "Name": "Apple Inc.",
+            "PERatio": "20"
+        }).encode('utf-8')
+        return MagicMock(__enter__=MagicMock(return_value=mock_resp))
+        
+    mock_urlopen.side_effect = urlopen_side_effect
+    
+    # Write a pre-existing cache file for S&P 500 tickers
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='tickers-cache/sp500_v2.json',
+        Body=json.dumps({"tickers": ["AAPL", "MSFT", "GOOG"]})
+    )
+    
+    # Write an initial queue state where MSFT failed and AAPL is pending
+    initial_queue = {
+        "AAPL": {"lastFetched": "2026-05-24T12:00:00Z", "lastStatus": "SUCCESS"},
+        "MSFT": {"lastFetched": "2026-05-23T12:00:00Z", "lastStatus": "FAILED"},
+        "GOOG": {"lastFetched": "2026-05-25T12:00:00Z", "lastStatus": "SUCCESS"}
+    }
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='tickers-cache/fetch-queue_v1.json',
+        Body=json.dumps(initial_queue)
+    )
+    
+    # Run dataFetch with NO tickers specified, with limit = 3
+    # This should trigger stateful queue selection
+    with patch.dict(os.environ, {'LIMIT_SP500_TICKERS': '3'}):
+        event = {'run_id': '2026-W02'}
+        response = dataFetch.handler(event, {})
+        
+    # Ticker selection:
+    # - previous_top_tickers: [] (none)
+    # - target_count: 3
+    # - failed tickers: MSFT (status = FAILED) -> added first
+    # - remaining sorted by lastFetched: AAPL (24th) is older than GOOG (25th)
+    # - So tickers to fetch should be: ['MSFT', 'AAPL', 'GOOG']
+    
+    metrics = response['metrics']
+    assert len(metrics) == 3
+    assert metrics[0]['ticker'] == 'MSFT'
+    assert metrics[1]['ticker'] == 'AAPL'
+    assert metrics[2]['ticker'] == 'GOOG'
+    
+    # Verify S3 fetch queue is updated and saved
+    obj = s3.get_object(Bucket='test-bucket', Key='tickers-cache/fetch-queue_v1.json')
+    updated_queue = json.loads(obj['Body'].read().decode('utf-8'))
+    
+    assert updated_queue['MSFT']['lastStatus'] == 'SUCCESS'  # because the mock urlopen returned Name "Apple Inc."
+    assert updated_queue['MSFT']['lastFetched'] is not None
+
