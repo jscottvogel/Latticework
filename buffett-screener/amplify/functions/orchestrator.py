@@ -306,8 +306,8 @@ def handler(event, context):
             )
             last_scores = res.get('Items', [])
             last_scores.sort(key=lambda x: float(x.get('compositeScore', 0)), reverse=True)
-            previous_top_tickers = [s['ticker'] for s in last_scores[:10]]
-            print(f"Carrying over top 10 tickers from run {last_run_id}: {previous_top_tickers}")
+            previous_top_tickers = [s['ticker'] for s in last_scores]
+            print(f"Carrying over all {len(previous_top_tickers)} screened tickers from run {last_run_id}: {previous_top_tickers}")
     except Exception as e:
         print(f"Warning: Failed to fetch previous top tickers: {e}")
         
