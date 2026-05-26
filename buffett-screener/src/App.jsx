@@ -138,7 +138,7 @@ function App() {
     };
   }, [handleRunNow]);
 
-  const latestRun = weeklyRuns[0];
+  const latestRun = weeklyRuns.find(r => r.status === 'COMPLETE');
 
   return (
     <div className="app-container">
