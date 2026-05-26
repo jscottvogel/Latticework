@@ -3,12 +3,115 @@ import os
 import boto3
 from botocore.config import Config
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 def get_run_id():
     now = datetime.now(timezone.utc)
     day_of_year = now.timetuple().tm_yday
     return f'{now.year}-D{day_of_year:03d}'
+
+def is_us_holiday_or_weekend(dt):
+    # 0 = Monday, 6 = Sunday
+    if dt.weekday() in (5, 6):
+        return True
+        
+    year = dt.year
+    month = dt.month
+    day = dt.day
+
+    def get_nth_weekday(year, month, weekday, n):
+        if n > 0:
+            count = 0
+            for d in range(1, 32):
+                try:
+                    curr = datetime(year, month, d)
+                    if curr.weekday() == weekday:
+                        count += 1
+                        if count == n:
+                            return d
+                except ValueError:
+                    break
+        else:
+            for d in range(31, 0, -1):
+                try:
+                    curr = datetime(year, month, d)
+                    if curr.weekday() == weekday:
+                        return d
+                except ValueError:
+                    pass
+        return None
+
+    holidays = set()
+    
+    # New Year's Day
+    jan1 = datetime(year, 1, 1)
+    if jan1.weekday() == 6:
+        holidays.add((year, 1, 2))
+    else:
+        holidays.add((year, 1, 1))
+        
+    # MLK Day: 3rd Monday in Jan
+    holidays.add((year, 1, get_nth_weekday(year, 1, 0, 3)))
+    
+    # Presidents' Day: 3rd Monday in Feb
+    holidays.add((year, 2, get_nth_weekday(year, 2, 0, 3)))
+    
+    # Good Friday
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month_easter = (h + l - 7 * m + 114) // 31
+    day_easter = ((h + l - 7 * m + 114) % 31) + 1
+    easter = datetime(year, month_easter, day_easter)
+    good_friday = easter - timedelta(days=2)
+    holidays.add((year, good_friday.month, good_friday.day))
+    
+    # Memorial Day: last Monday in May
+    holidays.add((year, 5, get_nth_weekday(year, 5, 0, -1)))
+    
+    # Juneteenth: June 19
+    j19 = datetime(year, 6, 19)
+    if j19.weekday() == 5:
+        holidays.add((year, 6, 18))
+    elif j19.weekday() == 6:
+        holidays.add((year, 6, 20))
+    else:
+        holidays.add((year, 6, 19))
+        
+    # Independence Day: July 4
+    jul4 = datetime(year, 7, 4)
+    if jul4.weekday() == 5:
+        holidays.add((year, 7, 3))
+    elif jul4.weekday() == 6:
+        holidays.add((year, 7, 5))
+    else:
+        holidays.add((year, 7, 4))
+        
+    # Labor Day: 1st Monday in Sep
+    holidays.add((year, 9, get_nth_weekday(year, 9, 0, 1)))
+    
+    # Thanksgiving: 4th Thursday in Nov
+    holidays.add((year, 11, get_nth_weekday(year, 11, 3, 4)))
+    
+    # Christmas: Dec 25
+    dec25 = datetime(year, 12, 25)
+    if dec25.weekday() == 5:
+        holidays.add((year, 12, 24))
+    elif dec25.weekday() == 6:
+        holidays.add((year, 12, 26))
+    else:
+        holidays.add((year, 12, 25))
+        
+    return (year, month, day) in holidays
 
 def invoke_lambda(function_name_env_key, payload):
     function_arn = os.environ.get(function_name_env_key)
@@ -274,6 +377,28 @@ def export_dashboard_to_s3(run_id, top_scores):
 def handler(event, context):
     run_id = get_run_id()
     print(f'Starting weekly screen: {run_id}')
+    
+    force = event.get('force', False)
+    cst_now = datetime.now(timezone.utc) - timedelta(hours=6)
+    if not force and is_us_holiday_or_weekend(cst_now):
+        print(f"Skipping run {run_id} because today ({cst_now.strftime('%Y-%m-%d')}) is a weekend or US federal holiday. Use 'force': true to override.")
+        try:
+            dynamodb = boto3.resource('dynamodb')
+            runs_table = dynamodb.Table(os.environ.get('DYNAMODB_TABLE_WEEKLY_RUNS'))
+            now_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+            runs_table.put_item(Item={
+                'runId': run_id,
+                'runDate': cst_now.strftime('%Y-%m-%d'),
+                'status': 'SKIPPED',
+                'errorMessage': 'Skipped due to US holiday or weekend',
+                'createdAt': now_iso,
+                'updatedAt': now_iso,
+                '__typename': 'WeeklyRun'
+            })
+        except Exception as e:
+            print(f"Failed to write skipped state to DynamoDB: {e}")
+        return {'status': 'SKIPPED_HOLIDAY_OR_WEEKEND'}
+
     
     dry_run = event.get('dry_run', False)
     if dry_run:

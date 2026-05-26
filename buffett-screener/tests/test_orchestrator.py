@@ -205,3 +205,67 @@ def test_update_rolling_scores_28_days(setup_aws):
     assert rolling_map['MSFT']['isInvestable'] is False
     assert len(rolling_map['MSFT']['scoreHistory']) == 27
 
+
+def test_is_us_holiday_or_weekend():
+    from datetime import datetime
+    
+    # Weekends
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 5, 23)) is True # Saturday
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 5, 24)) is True # Sunday
+    
+    # Weekdays
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 5, 26)) is False # Normal Tuesday
+    
+    # Holidays (2026)
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 1, 1)) is True   # New Year
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 5, 25)) is True  # Memorial Day
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 7, 4)) is True   # Independence Day
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 7, 3)) is True   # Independence Day observed
+    assert orchestrator.is_us_holiday_or_weekend(datetime(2026, 11, 26)) is True # Thanksgiving
+
+
+@patch('orchestrator.invoke_lambda')
+def test_handler_skips_on_weekend(mock_invoke, setup_aws):
+    dynamodb, s3, sns = setup_aws
+    
+    from datetime import datetime, timezone
+    mock_datetime = MagicMock(wraps=datetime)
+    mock_datetime.now.return_value = datetime(2026, 5, 23, 14, 0, 0, tzinfo=timezone.utc)
+    
+    with patch('orchestrator.datetime', mock_datetime):
+        response = orchestrator.handler({}, {})
+        
+    assert response == {'status': 'SKIPPED_HOLIDAY_OR_WEEKEND'}
+    
+    table = dynamodb.Table('TestWeeklyRuns')
+    runs = table.scan()['Items']
+    assert len(runs) == 1
+    assert runs[0]['status'] == 'SKIPPED'
+    assert 'holiday or weekend' in runs[0]['errorMessage']
+    assert mock_invoke.call_count == 0
+
+
+@patch('orchestrator.invoke_lambda')
+def test_handler_runs_when_forced(mock_invoke, setup_aws):
+    dynamodb, s3, sns = setup_aws
+    
+    mock_invoke.side_effect = [
+        {'metrics': [{'ticker': 'AAPL'}], 's3_key': 'test.json'}, # DATA_FETCH
+        {'candidates': [{'ticker': 'AAPL'}]} # QUANT_FILTER
+    ]
+    
+    from datetime import datetime, timezone
+    mock_datetime = MagicMock(wraps=datetime)
+    mock_datetime.now.return_value = datetime(2026, 5, 23, 14, 0, 0, tzinfo=timezone.utc)
+    
+    with patch('orchestrator.datetime', mock_datetime):
+        response = orchestrator.handler({'dry_run': True, 'force': True}, {})
+        
+    assert response['status'] == 'DRY_RUN_COMPLETE'
+    
+    table = dynamodb.Table('TestWeeklyRuns')
+    runs = table.scan()['Items']
+    assert len(runs) == 1
+    assert runs[0]['status'] == 'COMPLETE'
+
+

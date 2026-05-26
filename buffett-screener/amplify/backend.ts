@@ -186,9 +186,9 @@ orchestratorLambda.addEnvironment('DYNAMODB_TABLE_RAW_FINANCIALS', rawFinancials
 orchestratorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 orchestratorLambda.addEnvironment('SNS_ALERT_ARN', `arn:aws:sns:${stack.region}:${stack.account}:buffett-screener-alerts`);
 
-// EventBridge Scheduler (Daily at 8 AM CST / 2 PM UTC)
+// EventBridge Scheduler (Mon-Fri at 8 AM CST / 2 PM UTC)
 const dailyRule = new events.Rule(stack, 'DailyRunRule', {
-  schedule: events.Schedule.cron({ minute: '0', hour: '14' }),
+  schedule: events.Schedule.cron({ minute: '0', hour: '14', weekDay: 'MON-FRI' }),
 });
 dailyRule.addTarget(new targets.LambdaFunction(orchestratorLambda));
 
