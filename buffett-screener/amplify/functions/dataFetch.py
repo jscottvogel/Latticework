@@ -104,18 +104,27 @@ def _fetch_av(endpoint, ticker, api_key):
                 
                 # Check for Alpha Vantage rate limiting warnings
                 if "Note" in data:
-                    print(f"Rate limit hit (Note) on attempt {attempt+1} for {endpoint} {ticker}. Sleeping {retry_delay}s: {data.get('Note')}")
+                    note = data.get('Note', '')
+                    if api_key:
+                        note = note.replace(api_key, '********')
+                    print(f"Rate limit hit (Note) on attempt {attempt+1} for {endpoint} {ticker}. Sleeping {retry_delay}s: {note}")
                     time.sleep(retry_delay)
                     continue
                 if "Information" in data:
-                    print(f"Rate limit hit (Information) on attempt {attempt+1} for {endpoint} {ticker}. Sleeping {retry_delay}s: {data.get('Information')}")
+                    info = data.get('Information', '')
+                    if api_key:
+                        info = info.replace(api_key, '********')
+                    print(f"Rate limit hit (Information) on attempt {attempt+1} for {endpoint} {ticker}. Sleeping {retry_delay}s: {info}")
                     time.sleep(retry_delay)
                     continue
                 
                 print(f"API {endpoint} {ticker} - {ms}ms - 200")
                 return data
         except Exception as e:
-            print(f"API {endpoint} {ticker} failed on attempt {attempt+1}: {e}")
+            err_msg = str(e)
+            if api_key:
+                err_msg = err_msg.replace(api_key, '********')
+            print(f"API {endpoint} {ticker} failed on attempt {attempt+1}: {err_msg}")
             time.sleep(5)
             
     return {}

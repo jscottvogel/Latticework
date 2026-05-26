@@ -67,8 +67,11 @@ const lambdaPolicy = new iam.PolicyStatement({
 });
 
 const s3Policy = new iam.PolicyStatement({
-  actions: ['s3:GetObject', 's3:PutObject'],
-  resources: [dataBucket.arnForObjects('*')],
+  actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket'],
+  resources: [
+    dataBucket.bucketArn,
+    dataBucket.arnForObjects('*')
+  ],
 });
 
 const secretsPolicy = new iam.PolicyStatement({
