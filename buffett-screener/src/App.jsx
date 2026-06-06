@@ -39,7 +39,7 @@ function App() {
         // Sort runs by createdAt descending
         const sortedRuns = [ ...validRuns ].sort( ( a, b ) => new Date( b.createdAt ) - new Date( a.createdAt ) );
 
-        // Fetch scores for the last 4 runs to build history
+        // Fetch scores for the last 30 runs to build history
         let validScores = [];
         let historicalTrendData = [];
 
@@ -47,9 +47,9 @@ function App() {
         const completedRunsWithData = sortedRuns.filter( r => r.status === 'COMPLETE' && r.candidatesScored > 0 );
 
         if ( completedRunsWithData.length > 0 ) {
-          const last4Runs = completedRunsWithData.slice( 0, 4 );
+          const last30Runs = completedRunsWithData.slice( 0, 30 );
 
-          const scoresPromises = last4Runs.map( run =>
+          const scoresPromises = last30Runs.map( run =>
             client.models.StockScore.list( {
               filter: { runId: { eq: run.runId } },
               limit: 1000
@@ -69,11 +69,11 @@ function App() {
             .map( s => s.ticker );
 
           // Build history data from oldest to newest (reverse order)
-          historicalTrendData = last4Runs.slice().reverse().map( run => {
+          historicalTrendData = last30Runs.slice().reverse().map( run => {
             const runDateStr = run.runDate || new Date( run.createdAt ).toLocaleDateString();
             const dataPoint = { week: runDateStr };
 
-            const runIndex = last4Runs.findIndex( r => r.runId === run.runId );
+            const runIndex = last30Runs.findIndex( r => r.runId === run.runId );
             const runScores = scoresResults[ runIndex ].data || [];
 
             top10Tickers.forEach( ticker => {
