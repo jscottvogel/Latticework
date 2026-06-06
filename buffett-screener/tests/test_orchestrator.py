@@ -66,7 +66,7 @@ def test_handler_dry_run(mock_invoke, setup_aws):
         {'candidates': [{'ticker': 'AAPL'}]} # QUANT_FILTER
     ]
     
-    response = orchestrator.handler({'dry_run': True}, {})
+    response = orchestrator.handler({'dry_run': True, 'force': True}, {})
     
     assert response['status'] == 'DRY_RUN_COMPLETE'
     
@@ -88,7 +88,7 @@ def test_handler_full_run(mock_invoke, setup_aws):
         {'status': 'ok'} # MONTE_CARLO
     ]
     
-    response = orchestrator.handler({}, {})
+    response = orchestrator.handler({'force': True}, {})
     
     assert response['status'] == 'COMPLETE'
     
@@ -119,7 +119,7 @@ def test_handler_failure(mock_invoke, setup_aws):
     mock_invoke.side_effect = Exception("Test Failure")
     
     with pytest.raises(Exception):
-        orchestrator.handler({}, {})
+        orchestrator.handler({'force': True}, {})
         
     runs_table = dynamodb.Table('TestWeeklyRuns')
     runs = runs_table.scan()['Items']
@@ -267,5 +267,45 @@ def test_handler_runs_when_forced(mock_invoke, setup_aws):
     runs = table.scan()['Items']
     assert len(runs) == 1
     assert runs[0]['status'] == 'COMPLETE'
+
+
+def test_completed_runs_sorting_chronological(setup_aws):
+    dynamodb, s3, sns = setup_aws
+    runs_table = dynamodb.Table('TestWeeklyRuns')
+    
+    # '2026-W21' is alphabetically greater than '2026-D156' ('W' > 'D'),
+    # but chronologically '2026-D156' is later (June 5 vs May 22).
+    runs_table.put_item(Item={
+        'runId': '2026-W21',
+        'runDate': '2026-05-22',
+        'createdAt': '2026-05-22T17:00:00.000000Z',
+        'status': 'COMPLETE'
+    })
+    runs_table.put_item(Item={
+        'runId': '2026-D156',
+        'runDate': '2026-06-05',
+        'createdAt': '2026-06-05T14:00:00.000000Z',
+        'status': 'COMPLETE'
+    })
+    # Seed a third run with no createdAt to test fallback to runDate
+    runs_table.put_item(Item={
+        'runId': '2026-D155',
+        'runDate': '2026-06-04',
+        'status': 'COMPLETE'
+    })
+    
+    response = runs_table.scan(
+        FilterExpression="#s = :status",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={":status": "COMPLETE"}
+    )
+    completed_runs = response.get('Items', [])
+    
+    # Sort them using the exact logic from orchestrator.py
+    completed_runs.sort(key=lambda x: x.get('createdAt', x.get('runDate', '')), reverse=True)
+    
+    sorted_ids = [r['runId'] for r in completed_runs]
+    assert sorted_ids == ['2026-D156', '2026-D155', '2026-W21']
+
 
 

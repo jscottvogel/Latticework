@@ -192,7 +192,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
         ExpressionAttributeValues={":status": "COMPLETE"}
     )
     completed_runs = runs_response.get('Items', [])
-    completed_runs.sort(key=lambda x: x['runId'], reverse=True)
+    completed_runs.sort(key=lambda x: x.get('createdAt', x.get('runDate', '')), reverse=True)
     
     # Get last 28 runs: current run plus the last 27 completed runs
     recent_run_ids = [run_id]
@@ -422,7 +422,7 @@ def handler(event, context):
         completed_runs = [r for r in completed_runs if r['runId'] != run_id]
         
         if completed_runs:
-            completed_runs.sort(key=lambda x: x['runId'], reverse=True)
+            completed_runs.sort(key=lambda x: x.get('createdAt', x.get('runDate', '')), reverse=True)
             last_run_id = completed_runs[0]['runId']
             
             res = scores_table.query(
