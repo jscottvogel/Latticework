@@ -126,14 +126,14 @@ def test_handler_failure(mock_invoke, setup_aws):
     assert runs[0]['status'] == 'FAILED'
     assert runs[0]['errorMessage'] == 'Test Failure'
 
-def test_update_rolling_scores_28_days(setup_aws):
+def test_update_rolling_scores_30_days(setup_aws):
     dynamodb, s3, sns = setup_aws
     runs_table = dynamodb.Table('TestWeeklyRuns')
     scores_table = dynamodb.Table('TestStockScores')
     rolling_table = dynamodb.Table('TestRollingScores')
     
-    # Seed 27 completed runs in the database plus the 28th run
-    for i in range(1, 28):
+    # Seed 29 completed runs in the database plus the 30th run
+    for i in range(1, 30):
         run_id = f'2026-D{i:03d}'
         runs_table.put_item(Item={
             'runId': run_id,
@@ -142,7 +142,7 @@ def test_update_rolling_scores_28_days(setup_aws):
         })
         
         # AAPL is always in the top 10.
-        # MSFT is only in runs 2 to 28 (27 appearances).
+        # MSFT is only in runs 2 to 30 (29 appearances).
         scores_table.put_item(Item={
             'runId': run_id,
             'ticker': 'AAPL',
@@ -166,7 +166,7 @@ def test_update_rolling_scores_28_days(setup_aws):
                 'rankThisWeek': 2
             })
             
-    # Now call update_rolling_scores for the 28th run: '2026-D028'
+    # Now call update_rolling_scores for the 30th run: '2026-D030'
     current_scores = [
         {
             'ticker': 'AAPL',
@@ -186,7 +186,7 @@ def test_update_rolling_scores_28_days(setup_aws):
         }
     ]
     
-    orchestrator.update_rolling_scores('2026-D028', current_scores, candidates=[])
+    orchestrator.update_rolling_scores('2026-D030', current_scores, candidates=[])
     
     # Check results in TestRollingScores
     rolling_items = rolling_table.scan()['Items']
@@ -195,15 +195,15 @@ def test_update_rolling_scores_28_days(setup_aws):
     assert 'AAPL' in rolling_map
     assert 'MSFT' in rolling_map
     
-    # AAPL: 28 appearances -> isInvestable = True
-    assert rolling_map['AAPL']['appearancesLast4Weeks'] == 28
+    # AAPL: 30 appearances -> isInvestable = True
+    assert rolling_map['AAPL']['appearancesLast4Weeks'] == 30
     assert rolling_map['AAPL']['isInvestable'] is True
-    assert len(rolling_map['AAPL']['scoreHistory']) == 28
+    assert len(rolling_map['AAPL']['scoreHistory']) == 30
     
-    # MSFT: 27 appearances -> isInvestable = False
-    assert rolling_map['MSFT']['appearancesLast4Weeks'] == 27
+    # MSFT: 29 appearances -> isInvestable = False
+    assert rolling_map['MSFT']['appearancesLast4Weeks'] == 29
     assert rolling_map['MSFT']['isInvestable'] is False
-    assert len(rolling_map['MSFT']['scoreHistory']) == 27
+    assert len(rolling_map['MSFT']['scoreHistory']) == 29
 
 
 def test_is_us_holiday_or_weekend():

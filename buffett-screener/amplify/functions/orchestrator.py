@@ -194,12 +194,12 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
     completed_runs = runs_response.get('Items', [])
     completed_runs.sort(key=lambda x: x.get('createdAt', x.get('runDate', '')), reverse=True)
     
-    # Get last 28 runs: current run plus the last 27 completed runs
+    # Get last 30 runs: current run plus the last 29 completed runs
     recent_run_ids = [run_id]
     for r in completed_runs:
         if r['runId'] != run_id:
             recent_run_ids.append(r['runId'])
-            if len(recent_run_ids) == 28:
+            if len(recent_run_ids) == 30:
                 break
                 
     scores_table_name = os.environ.get('DYNAMODB_TABLE_STOCK_SCORES')
@@ -302,12 +302,12 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
                         'verdict': verdict
                     })
                     
-            # Keep history to last 28 runs
-            history = history[-28:]
+            # Keep history to last 30 runs
+            history = history[-30:]
             
             # Recalculate
             avg_score = sum(scores_for_avg) / len(scores_for_avg) if scores_for_avg else 0.0
-            is_investable = appearances >= 28
+            is_investable = appearances >= 30
             
             meta = ticker_metadata.get(ticker, {})
             existing = all_rolling.get(ticker, {})
