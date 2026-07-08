@@ -104,12 +104,12 @@ def get_ticker_group(all_tickers, run_id):
     except:
         day_num = 1
     
-    # Partition into 7 groups to ensure all stocks are evaluated at least once a week (7 days)
-    group_idx = day_num % 7
-    group_size = len(all_tickers) // 7
+    # Partition into 14 groups to ensure all stocks are evaluated at least once a week (14 days)
+    group_idx = day_num % 14
+    group_size = len(all_tickers) // 14
     start = group_idx * group_size
     # If it's the last group, take all remaining
-    end = start + group_size if group_idx < 6 else len(all_tickers)
+    end = start + group_size if group_idx < 13 else len(all_tickers)
     return all_tickers[start:end]
 
 def _fetch_av(endpoint, ticker, api_key):
@@ -341,8 +341,8 @@ def handler(event, context):
         
         previous_top_tickers = event.get('previous_top_tickers', [])
         
-        # Define target count. Default to 1/7th of S&P 500 (approx 71 stocks)
-        target_count = len(all_tickers) // 7
+        # Define target count. Default to 1/14th of S&P 500 (approx 35 stocks)
+        target_count = len(all_tickers) // 14
         if target_count < 10:
             target_count = 10
         if len(all_tickers) <= target_count:
