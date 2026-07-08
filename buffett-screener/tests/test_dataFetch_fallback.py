@@ -47,3 +47,33 @@ def test_get_sp500_tickers_fallback_expired_cache(mock_urlopen, setup_aws):
         
     # 4. Verify fallback worked and returned the cached tickers despite Wikipedia failure
     assert tickers == ["AAPL", "MSFT", "GOOG"]
+
+
+@patch('urllib.request.urlopen')
+def test_get_sp500_tickers_fallback_zero_tickers_parsed(mock_urlopen, setup_aws):
+    _, s3 = setup_aws
+    
+    # Seed expired cache
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='tickers-cache/sp500_v2.json',
+        Body=json.dumps({"tickers": ["AAPL", "MSFT", "GOOG"]})
+    )
+    
+    # Mock urllib to return a response with NO constituents table or 0 rows
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b"<html><body>No constituents table here</body></html>"
+    mock_urlopen.return_value = MagicMock(__enter__=MagicMock(return_value=mock_resp))
+    
+    future_time = datetime.now(timezone.utc) + timedelta(days=10)
+    
+    class MockDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return future_time
+            
+    with patch('dataFetch.datetime', MockDatetime):
+        tickers = dataFetch.get_sp500_tickers(s3, 'test-bucket')
+        
+    # Verify fallback worked because 0 tickers were parsed
+    assert tickers == ["AAPL", "MSFT", "GOOG"]

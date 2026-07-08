@@ -69,7 +69,7 @@ def get_sp500_tickers(s3_client, bucket_name):
             # Extract tickers from the first column of each row
             # Usually <a ...>TICKER</a> or just TICKER
             tickers = []
-            rows = re.findall(r'<tr>(.*?)</tr>', table_match.group(1), re.DOTALL)
+            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_match.group(1), re.DOTALL)
             for row in rows[1:]: # Skip header
                 cols = re.findall(r'<td.*?>(.*?)</td>', row, re.DOTALL)
                 if cols:
@@ -78,6 +78,9 @@ def get_sp500_tickers(s3_client, bucket_name):
                     ticker = ticker_raw.replace('.', '-')
                     if ticker:
                         tickers.append(ticker)
+            
+            if not tickers:
+                raise ValueError("Parsed 0 tickers from Wikipedia constituents table.")
             
             # Save to S3
             if tickers and bucket_name:
