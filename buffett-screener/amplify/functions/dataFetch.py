@@ -40,13 +40,15 @@ def get_secret(secret_name):
 
 def get_sp500_tickers(s3_client, bucket_name):
     cache_key = 'tickers-cache/sp500_v2.json'
+    cached_tickers = None
     try:
         # Check S3 cache
         obj = s3_client.get_object(Bucket=bucket_name, Key=cache_key)
         last_modified = obj['LastModified']
+        data = json.loads(obj['Body'].read().decode('utf-8'))
+        cached_tickers = data.get('tickers', [])
         if datetime.now(timezone.utc) - last_modified < timedelta(days=7):
-            data = json.loads(obj['Body'].read().decode('utf-8'))
-            return data.get('tickers', [])
+            return cached_tickers
     except s3_client.exceptions.NoSuchKey:
         pass
     except Exception as e:
@@ -87,6 +89,9 @@ def get_sp500_tickers(s3_client, bucket_name):
             return tickers
     except Exception as e:
         print(f"Failed to fetch from Wikipedia: {e}")
+        if cached_tickers:
+            print("Falling back to expired S3 cached tickers.")
+            return cached_tickers
         return []
 
 def get_ticker_group(all_tickers, run_id):
