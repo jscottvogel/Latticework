@@ -307,7 +307,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
             
             # Recalculate
             avg_score = sum(scores_for_avg) / len(scores_for_avg) if scores_for_avg else 0.0
-            is_investable = appearances >= 30
+            is_investable = appearances >= 25
             
             meta = ticker_metadata.get(ticker, {})
             existing = all_rolling.get(ticker, {})

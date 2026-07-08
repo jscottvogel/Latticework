@@ -106,7 +106,7 @@ def test_handler_full_run(mock_invoke, setup_aws):
     assert rolling[0]['ticker'] == 'AAPL'
     assert rolling[0]['avgCompositeScore'] == decimal.Decimal('8.5')
     assert rolling[0]['investigateCount'] == 1
-    assert rolling[0]['isInvestable'] == False # needs 3 appearances
+    assert rolling[0]['isInvestable'] == False # needs 25 appearances
     
     # Check S3 Dashboard
     objs = s3.list_objects_v2(Bucket='test-bucket')['Contents']
@@ -200,9 +200,9 @@ def test_update_rolling_scores_30_days(setup_aws):
     assert rolling_map['AAPL']['isInvestable'] is True
     assert len(rolling_map['AAPL']['scoreHistory']) == 30
     
-    # MSFT: 29 appearances -> isInvestable = False
+    # MSFT: 29 appearances -> isInvestable = True (threshold is 25)
     assert rolling_map['MSFT']['appearancesLast4Weeks'] == 29
-    assert rolling_map['MSFT']['isInvestable'] is False
+    assert rolling_map['MSFT']['isInvestable'] is True
     assert len(rolling_map['MSFT']['scoreHistory']) == 29
 
 

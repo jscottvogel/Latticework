@@ -22,7 +22,7 @@ export default function InvestableTable({ rollingScores }) {
   return (
     <div className="table-container">
       <h2>Investable Candidates</h2>
-      <p className="subtitle">Consistently in the top 10 for all daily runs over the last 4 weeks (28 days).</p>
+      <p className="subtitle">Consistently in the top 10 for at least 25 of the last 30 daily runs.</p>
       
       <table className="data-table">
         <thead>
@@ -30,7 +30,7 @@ export default function InvestableTable({ rollingScores }) {
             <th title="Current rank based on average composite score">Rank</th>
             <th title="Stock ticker symbol">Ticker</th>
             <th title="Company name">Company</th>
-            <th title="Number of appearances in the top 10 over the last 28 days">Appearances</th>
+            <th title="Number of appearances in the top 10 over the last 30 daily runs">Appearances</th>
             <th title="Average AI-generated composite score over recent runs">Avg Score</th>
             <th title="Number of times flagged with an INVESTIGATE verdict">Inv. Count</th>
             <th title="Most recent single-line thesis from the AI">Latest Thesis</th>
@@ -48,7 +48,7 @@ export default function InvestableTable({ rollingScores }) {
                 <td className="fw-bold">{score.ticker}</td>
                 <td>{score.companyName}</td>
                 <td className={getAppearanceColor(score.appearancesLast4Weeks)}>
-                  {score.appearancesLast4Weeks}/28
+                  {score.appearancesLast4Weeks}/30
                 </td>
                 <td>{score.avgCompositeScore?.toFixed(1)}</td>
                 <td>{score.investigateCount}</td>
