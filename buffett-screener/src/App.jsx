@@ -5,6 +5,8 @@ import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import TrendChart from './components/TrendChart';
 import ScoreCard from './components/ScoreCard';
 import Footer from './components/Footer';
+import ValidationPanel from './components/ValidationPanel';
+import ThemeBaskets from './components/ThemeBaskets';
 import './App.css';
 
 import { generateClient } from 'aws-amplify/data';
@@ -20,6 +22,8 @@ function App() {
   const [ stockScores, setStockScores ] = useState( [] );
   const [ rollingScores, setRollingScores ] = useState( [] );
   const [ trendData, setTrendData ] = useState( [] );
+  const [ selectedRunId, setSelectedRunId ] = useState( '' );
+  const [ selectedRunScores, setSelectedRunScores ] = useState( [] );
 
   useEffect( () => {
     async function fetchData() {
@@ -91,6 +95,11 @@ function App() {
         setStockScores( validScores );
         setRollingScores( validRolling );
         setTrendData( historicalTrendData );
+
+        const latestCompletedRunId = completedRunsWithData[ 0 ]?.runId;
+        if ( latestCompletedRunId && !selectedRunId ) {
+          setSelectedRunId( latestCompletedRunId );
+        }
       } catch ( err ) {
         console.error( 'Error fetching data:', err );
       } finally {
@@ -106,6 +115,26 @@ function App() {
     return () => clearInterval( interval );
   }, [] );
 
+  useEffect( () => {
+    if ( !selectedRunId ) return;
+    
+    async function fetchSelectedScores() {
+      try {
+        const { data: scores } = await client.models.StockScore.list( {
+          filter: { runId: { eq: selectedRunId } },
+          limit: 1000
+        } );
+        const valid = ( scores || [] ).filter( s => s !== null && s.ticker && s.createdAt );
+        valid.sort( ( a, b ) => ( b.compositeScore || 0 ) - ( a.compositeScore || 0 ) );
+        setSelectedRunScores( valid );
+      } catch ( err ) {
+        console.error( "Error fetching scores for run", selectedRunId, err );
+      }
+    }
+    
+    fetchSelectedScores();
+  }, [ selectedRunId, weeklyRuns ] );
+
   const handleRunNow = useCallback( async () => {
     const url = outputs?.custom?.orchestratorUrl;
     if ( !url ) {
@@ -115,7 +144,15 @@ function App() {
 
     setIsTriggering( true );
     try {
-      const res = await fetch( url, { method: 'POST' } );
+      const headers = {};
+      const triggerSecret = import.meta.env.VITE_TRIGGER_SECRET;
+      if ( triggerSecret ) {
+        headers[ 'X-Trigger-Secret' ] = triggerSecret;
+      }
+      const res = await fetch( url, {
+        method: 'POST',
+        headers: headers
+      } );
       if ( res.ok ) {
         alert( "Pipeline triggered successfully! It may take several minutes to complete." );
       } else {
@@ -126,6 +163,38 @@ function App() {
       alert( "Error triggering pipeline." );
     } finally {
       setIsTriggering( false );
+    }
+  }, [] );
+
+  const handlePrioritizeScan = useCallback( async ( ticker ) => {
+    const url = outputs?.custom?.orchestratorUrl;
+    if ( !url ) {
+      alert( "Orchestrator URL not found in config." );
+      return;
+    }
+    
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const triggerSecret = import.meta.env.VITE_TRIGGER_SECRET;
+      if ( triggerSecret ) {
+        headers[ 'X-Trigger-Secret' ] = triggerSecret;
+      }
+      
+      const res = await fetch( url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify( { prioritize_ticker: ticker } )
+      } );
+      
+      if ( res.ok ) {
+        alert( `Successfully prioritized ${ticker} for next daily screen!` );
+      } else {
+        const errData = await res.json();
+        alert( `Failed to prioritize ${ticker}: ${errData.error || errData.reason || res.statusText}` );
+      }
+    } catch ( err ) {
+      console.error( err );
+      alert( `Error prioritizing ${ticker}` );
     }
   }, [] );
 
@@ -144,6 +213,8 @@ function App() {
       <Header
         lastUpdated={ latestRun?.createdAt ? new Date( latestRun.createdAt ).toLocaleDateString() : null }
         runCost={ latestRun?.totalCostUsd }
+        universeCoverage={ latestRun?.universeCoveragePct }
+        screenedCumulative={ latestRun?.stocksScreenedCumulative }
         onRunNow={ handleRunNow }
         isTriggering={ isTriggering }
       />
@@ -168,6 +239,18 @@ function App() {
           >
             History
           </button>
+          <button
+            className={ `tab ${ activeTab === 'validation' ? 'active' : '' }` }
+            onClick={ () => setActiveTab( 'validation' ) }
+          >
+            Validation
+          </button>
+          <button
+            className={ `tab ${ activeTab === 'themes' ? 'active' : '' }` }
+            onClick={ () => setActiveTab( 'themes' ) }
+          >
+            Themes
+          </button>
         </div>
 
         { loading ? (
@@ -175,14 +258,41 @@ function App() {
         ) : (
           <div className="tab-content">
             { activeTab === 'investable' && (
-              <InvestableTable rollingScores={ rollingScores } />
+              <InvestableTable rollingScores={ rollingScores } onPrioritize={ handlePrioritizeScan } />
             ) }
 
             { activeTab === 'thisWeek' && (
               <>
-                <WeeklyLeaderboard stockScores={ stockScores } />
+                <div style={{ backgroundColor: 'white', padding: '1rem 1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#1A6B3C' }}>Historical Run Selector</h3>
+                    <span style={{ fontSize: '0.8rem', color: '#666' }}>Browse components and details of any past pipeline execution.</span>
+                  </div>
+                  <div>
+                    <label htmlFor="run-select" style={{ marginRight: '8px', fontWeight: 'bold', fontSize: '0.9rem', color: '#333' }}>Select Run: </label>
+                    <select
+                      id="run-select"
+                      value={selectedRunId}
+                      onChange={(e) => setSelectedRunId(e.target.value)}
+                      style={{ padding: '6px 12px', border: '1px solid #1A6B3C', borderRadius: '4px', fontSize: '0.9rem', outline: 'none', cursor: 'pointer' }}
+                    >
+                      {weeklyRuns
+                        .filter(r => r.status === 'COMPLETE' && r.candidatesScored > 0)
+                        .map(r => {
+                          const dateStr = r.runDate || new Date(r.createdAt).toLocaleDateString();
+                          return (
+                            <option key={r.runId} value={r.runId}>
+                              {dateStr} ({r.runId})
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+                </div>
+
+                <WeeklyLeaderboard stockScores={ selectedRunScores } onPrioritize={ handlePrioritizeScan } />
                 <div style={ { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' } }>
-                  { stockScores
+                  { selectedRunScores
                     .filter( s => s.verdict === 'INVESTIGATE' || s.verdict === 'MONITOR' )
                     .slice( 0, 3 )
                     .map( score => (
@@ -195,6 +305,14 @@ function App() {
 
             { activeTab === 'history' && (
               <TrendChart historyData={ trendData } />
+            ) }
+
+            { activeTab === 'validation' && (
+              <ValidationPanel />
+            ) }
+
+            { activeTab === 'themes' && (
+              <ThemeBaskets onPrioritize={ handlePrioritizeScan } />
             ) }
           </div>
         ) }

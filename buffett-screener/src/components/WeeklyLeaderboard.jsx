@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './TableStyles.css';
 
-export default function WeeklyLeaderboard({ stockScores }) {
+export default function WeeklyLeaderboard({ stockScores, onPrioritize }) {
   const [expandedRow, setExpandedRow] = useState(null);
   const [filterType, setFilterType] = useState('active'); // 'active' (default) or 'all'
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,6 +199,20 @@ export default function WeeklyLeaderboard({ stockScores }) {
                           {score.redFlags?.map((r, i) => <li key={i}>{r}</li>) || <li>None</li>}
                         </ul>
                       </div>
+                      {onPrioritize && (
+                        <div className="expanded-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPrioritize(score.ticker);
+                            }}
+                            className="run-now-btn"
+                            style={{ padding: '8px 16px', fontSize: '0.85rem', backgroundColor: '#1A6B3C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            ⚡ Prioritize Rescreen
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

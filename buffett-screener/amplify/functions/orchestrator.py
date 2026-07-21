@@ -5,6 +5,38 @@ from botocore.config import Config
 import time
 from datetime import datetime, timezone, timedelta
 
+_TRIGGER_SECRET = None
+
+def get_trigger_secret(secret_name='/buffett-screener/trigger-secret'):
+    global _TRIGGER_SECRET
+    if _TRIGGER_SECRET:
+        return _TRIGGER_SECRET
+    client = boto3.client('secretsmanager')
+    try:
+        response = client.get_secret_value(SecretId=secret_name)
+        secret_string = response.get('SecretString', '').strip()
+        if not secret_string:
+            return None
+        try:
+            secret_dict = json.loads(secret_string)
+            if isinstance(secret_dict, dict):
+                _TRIGGER_SECRET = secret_dict.get('key') or secret_dict.get('secret') or secret_dict.get('apiKey') or secret_dict.get('trigger-secret') or secret_dict.get('value')
+                if not _TRIGGER_SECRET and secret_dict:
+                    _TRIGGER_SECRET = next(iter(secret_dict.values()))
+            else:
+                _TRIGGER_SECRET = str(secret_dict)
+        except (json.JSONDecodeError, TypeError):
+            import re
+            match = re.search(r'[\'"]?(?:key|secret|value)[\'"]?\s*[:=]\s*[\'"]?([A-Za-z0-9\-]+)[\'"]?', secret_string)
+            if match:
+                _TRIGGER_SECRET = match.group(1)
+            else:
+                _TRIGGER_SECRET = secret_string.strip('\'"{} ')
+        return _TRIGGER_SECRET
+    except Exception as e:
+        print(f"Error fetching trigger secret: {e}")
+        return None
+
 def get_run_id():
     now = datetime.now(timezone.utc)
     day_of_year = now.timetuple().tm_yday
@@ -152,7 +184,7 @@ def send_alert(subject, message):
         except Exception as e:
             print(f"Failed to send SNS alert: {e}")
 
-def update_rolling_scores(run_id, current_scores, candidates=None):
+def update_rolling_scores(run_id, current_scores, candidates=None, screened_tickers=None):
     dynamodb = boto3.resource('dynamodb')
     table_name = os.environ.get('DYNAMODB_TABLE_ROLLING_SCORES')
     if not table_name:
@@ -194,14 +226,25 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
     completed_runs = runs_response.get('Items', [])
     completed_runs.sort(key=lambda x: x.get('createdAt', x.get('runDate', '')), reverse=True)
     
-    # Get last 30 runs: current run plus the last 29 completed runs
+    # Get recent runs within the last 28 calendar days
+    today = datetime.now(timezone.utc).date()
+    cutoff_date = today - timedelta(days=28)
+    
     recent_run_ids = [run_id]
     for r in completed_runs:
-        if r['runId'] != run_id:
-            recent_run_ids.append(r['runId'])
-            if len(recent_run_ids) == 30:
-                break
-                
+        rid = r.get('runId')
+        if rid == run_id:
+            continue
+        rdate_str = r.get('runDate') or (r.get('createdAt')[:10] if r.get('createdAt') else None)
+        if not rdate_str:
+            continue
+        try:
+            rdate = datetime.strptime(rdate_str, "%Y-%m-%d").date()
+            if rdate >= cutoff_date:
+                recent_run_ids.append(rid)
+        except ValueError:
+            continue
+            
     scores_table_name = os.environ.get('DYNAMODB_TABLE_STOCK_SCORES')
     scores_table = dynamodb.Table(scores_table_name)
     
@@ -268,6 +311,30 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
         sorted_tickers = sorted(ticker_map.keys(), key=lambda t: float(ticker_map[t].get('compositeScore', 0)), reverse=True)
         top_10_by_run[rid] = set(sorted_tickers[:10])
         
+    # Map runId -> set(tickers_screened)
+    screened_by_run = {}
+    if screened_tickers:
+        screened_by_run[run_id] = set(screened_tickers)
+    else:
+        screened_by_run[run_id] = set([s['ticker'] for s in normalized_scores])
+        
+    s3_client = boto3.client('s3')
+    bucket = os.environ.get('S3_BUCKET')
+    
+    for rid in recent_run_ids:
+        if rid == run_id:
+            continue
+        try:
+            s3_key = f'raw-financials/{rid}/all_metrics.json'
+            obj = s3_client.get_object(Bucket=bucket, Key=s3_key)
+            data = json.loads(obj['Body'].read().decode('utf-8'))
+            screened_by_run[rid] = set(item['ticker'] for item in data)
+        except Exception as e:
+            print(f"Warning: Could not fetch screened tickers for run {rid} from S3: {e}")
+            # Fall back to using StockScores as a proxy
+            run_data = scores_by_run_and_ticker.get(rid, {})
+            screened_by_run[rid] = set(run_data.keys())
+        
     # Fetch existing RollingScores
     response = table.scan()
     all_rolling = {item['ticker']: item for item in response.get('Items', [])}
@@ -309,6 +376,13 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
             avg_score = sum(scores_for_avg) / len(scores_for_avg) if scores_for_avg else 0.0
             is_investable = appearances >= 25
             
+            # Calculate screenedInWindow and appearanceRate
+            screened_in_window = 0
+            for rid in recent_run_ids:
+                if ticker in screened_by_run.get(rid, set()):
+                    screened_in_window += 1
+            appearance_rate = float(appearances) / screened_in_window if screened_in_window > 0 else 0.0
+            
             meta = ticker_metadata.get(ticker, {})
             existing = all_rolling.get(ticker, {})
             
@@ -324,6 +398,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None):
                 'sector': sector,
                 'scoreHistory': history,
                 'appearancesLast4Weeks': appearances,
+                'appearanceRate': decimal.Decimal(str(round(appearance_rate, 4))),
                 'avgCompositeScore': decimal.Decimal(str(avg_score)),
                 'investigateCount': investigate_count,
                 'isInvestable': is_investable,
@@ -375,6 +450,73 @@ def export_dashboard_to_s3(run_id, top_scores):
         print(f"Failed to export dashboard: {e}")
 
 def handler(event, context):
+    if 'requestContext' in event:
+        headers = event.get('headers', {})
+        incoming_secret = next((v for k, v in headers.items() if k.lower() == 'x-trigger-secret'), None)
+        expected_secret = get_trigger_secret()
+        if not expected_secret or incoming_secret != expected_secret:
+            print("Unauthorized trigger attempt via Function URL.")
+            return {
+                "statusCode": 401,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"error": "unauthorized"})
+            }
+
+    # Parse request body if available
+    body_data = {}
+    if 'body' in event and event['body']:
+        try:
+            body_data = json.loads(event['body'])
+        except Exception as parse_err:
+            print(f"Failed to parse request body: {parse_err}")
+            
+    prioritize_ticker = body_data.get('prioritize_ticker') or event.get('prioritize_ticker')
+    if prioritize_ticker:
+        print(f"Prioritizing ticker for next scan: {prioritize_ticker}")
+        s3_client = boto3.client('s3')
+        bucket = os.environ.get('S3_BUCKET')
+        queue_key = 'tickers-cache/fetch-queue_v1.json'
+        try:
+            try:
+                obj = s3_client.get_object(Bucket=bucket, Key=queue_key)
+                queue_state = json.loads(obj['Body'].read().decode('utf-8'))
+            except Exception as read_err:
+                print(f"Queue not found or unreadable, initializing new queue: {read_err}")
+                queue_state = {}
+                
+            queue_state[prioritize_ticker] = {
+                'lastFetched': '1970-01-01T00:00:00Z',
+                'lastStatus': 'PRIORITIZED'
+            }
+            
+            s3_client.put_object(
+                Bucket=bucket,
+                Key=queue_key,
+                Body=json.dumps(queue_state)
+            )
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Methods": "*"
+                },
+                "body": json.dumps({"status": "SUCCESS", "message": f"Prioritized {prioritize_ticker} for next scan."})
+            }
+        except Exception as e:
+            return {
+                "statusCode": 500,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"status": "FAILED", "reason": str(e)})
+            }
+
     run_id = get_run_id()
     print(f'Starting weekly screen: {run_id}')
     
@@ -505,9 +647,37 @@ def handler(event, context):
             'candidates': scores
         })
         
+        # Calculate universe coverage
+        stocks_screened_cumulative = 0
+        universe_coverage_pct = 0.0
+        try:
+            s3_client = boto3.client('s3')
+            bucket = os.environ.get('S3_BUCKET')
+            queue_key = 'tickers-cache/fetch-queue_v1.json'
+            obj = s3_client.get_object(Bucket=bucket, Key=queue_key)
+            queue_state = json.loads(obj['Body'].read().decode('utf-8'))
+            
+            total_tickers = len(queue_state)
+            if total_tickers > 0:
+                now = datetime.now(timezone.utc)
+                cutoff = now - timedelta(days=14)
+                
+                for t, state in queue_state.items():
+                    lf_str = state.get('lastFetched')
+                    if lf_str:
+                        try:
+                            lf_dt = datetime.fromisoformat(lf_str.replace('Z', '+00:00'))
+                            if lf_dt >= cutoff:
+                                stocks_screened_cumulative += 1
+                        except Exception as parse_err:
+                            pass
+                universe_coverage_pct = (stocks_screened_cumulative / total_tickers) * 100.0
+        except Exception as e:
+            print(f"Warning: Could not calculate universe coverage: {e}")
+
         # Update rolling
         print('Updating rolling scores...')
-        update_rolling_scores(run_id, scores, candidates)
+        update_rolling_scores(run_id, scores, candidates, screened_tickers=[m['ticker'] for m in metrics])
         
         # Export
         print('Exporting dashboard...')
@@ -517,13 +687,15 @@ def handler(event, context):
         import decimal
         runs_table.update_item(
             Key={'runId': run_id},
-            UpdateExpression="SET #s = :status, totalCostUsd = :cost, stocksScreened = :ss, candidatesScored = :cs, updatedAt = :updated",
+            UpdateExpression="SET #s = :status, totalCostUsd = :cost, stocksScreened = :ss, candidatesScored = :cs, stocksScreenedCumulative = :ssc, universeCoveragePct = :ucp, updatedAt = :updated",
             ExpressionAttributeNames={'#s': 'status'},
             ExpressionAttributeValues={
                 ':status': 'COMPLETE',
                 ':cost': decimal.Decimal(str(ai_cost)),
                 ':ss': len(metrics),
                 ':cs': len(candidates),
+                ':ssc': stocks_screened_cumulative,
+                ':ucp': decimal.Decimal(str(round(universe_coverage_pct, 2))),
                 ':updated': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             }
         )

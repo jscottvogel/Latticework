@@ -163,6 +163,7 @@ def fetch_overview(ticker, api_key):
     return {
         'name': data.get('Name'),
         'sector': data.get('Sector'),
+        'description': data.get('Description'),
         'roe': _safe_float(data.get('ReturnOnEquityTTM')),
         'net_margin': _safe_float(data.get('ProfitMargin')),
         'debt_to_equity': _safe_float(data.get('DebtToEquityRatio')),

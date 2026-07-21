@@ -131,18 +131,22 @@ def test_update_rolling_scores_30_days(setup_aws):
     runs_table = dynamodb.Table('TestWeeklyRuns')
     scores_table = dynamodb.Table('TestStockScores')
     rolling_table = dynamodb.Table('TestRollingScores')
+
+    from datetime import datetime, timezone, timedelta
+    today = datetime.now(timezone.utc).date()
     
     # Seed 29 completed runs in the database plus the 30th run
     for i in range(1, 30):
         run_id = f'2026-D{i:03d}'
+        run_date = today - timedelta(days=29 - i)
         runs_table.put_item(Item={
             'runId': run_id,
             'status': 'COMPLETE',
-            'runDate': f'2026-05-{i:02d}'
+            'runDate': run_date.strftime('%Y-%m-%d')
         })
         
         # AAPL is always in the top 10.
-        # MSFT is only in runs 2 to 30 (29 appearances).
+        # MSFT is only in runs 2 to 30 (28 appearances in the last 28 days).
         scores_table.put_item(Item={
             'runId': run_id,
             'ticker': 'AAPL',
@@ -186,7 +190,7 @@ def test_update_rolling_scores_30_days(setup_aws):
         }
     ]
     
-    orchestrator.update_rolling_scores('2026-D030', current_scores, candidates=[])
+    orchestrator.update_rolling_scores('2026-D030', current_scores, candidates=[], screened_tickers=['AAPL', 'MSFT'])
     
     # Check results in TestRollingScores
     rolling_items = rolling_table.scan()['Items']
@@ -195,13 +199,15 @@ def test_update_rolling_scores_30_days(setup_aws):
     assert 'AAPL' in rolling_map
     assert 'MSFT' in rolling_map
     
-    # AAPL: 30 appearances -> isInvestable = True
+    # AAPL: 30 appearances (since all are in 28 days window) -> isInvestable = True
     assert rolling_map['AAPL']['appearancesLast4Weeks'] == 30
+    assert rolling_map['AAPL']['appearanceRate'] == decimal.Decimal('1.0')
     assert rolling_map['AAPL']['isInvestable'] is True
     assert len(rolling_map['AAPL']['scoreHistory']) == 30
     
     # MSFT: 29 appearances -> isInvestable = True (threshold is 25)
     assert rolling_map['MSFT']['appearancesLast4Weeks'] == 29
+    assert rolling_map['MSFT']['appearanceRate'] == decimal.Decimal('1.0')
     assert rolling_map['MSFT']['isInvestable'] is True
     assert len(rolling_map['MSFT']['scoreHistory']) == 29
 
@@ -306,6 +312,189 @@ def test_completed_runs_sorting_chronological(setup_aws):
     
     sorted_ids = [r['runId'] for r in completed_runs]
     assert sorted_ids == ['2026-D156', '2026-D155', '2026-W21']
+
+@patch('orchestrator.invoke_lambda')
+def test_handler_url_auth(mock_invoke, setup_aws):
+    dynamodb, s3, sns = setup_aws
+    orchestrator._TRIGGER_SECRET = None
+    
+    # Set up mock trigger secret in Secrets Manager
+    sm = boto3.client('secretsmanager', region_name='us-east-1')
+    sm.create_secret(
+        Name='/buffett-screener/trigger-secret',
+        SecretString=json.dumps({"key": "my-secret-key"})
+    )
+    
+    # 1. Request with correct secret succeeds
+    mock_invoke.side_effect = [
+        {'metrics': [{'ticker': 'AAPL'}], 's3_key': 'test.json'}, # DATA_FETCH
+        {'candidates': [{'ticker': 'AAPL'}]} # QUANT_FILTER
+    ]
+    event = {
+        'dry_run': True,
+        'force': True,
+        'requestContext': {},
+        'headers': {
+            'X-Trigger-Secret': 'my-secret-key'
+        }
+    }
+    response = orchestrator.handler(event, {})
+    assert response['status'] == 'DRY_RUN_COMPLETE'
+    
+    # Reset mock_invoke
+    mock_invoke.reset_mock()
+    orchestrator._TRIGGER_SECRET = None
+    
+    # 2. Request with incorrect secret returns 401
+    event = {
+        'dry_run': True,
+        'force': True,
+        'requestContext': {},
+        'headers': {
+            'X-Trigger-Secret': 'wrong-secret-key'
+        }
+    }
+    response = orchestrator.handler(event, {})
+    assert response['statusCode'] == 401
+    assert 'unauthorized' in response['body']
+    assert mock_invoke.call_count == 0
+    
+    # 3. Request with missing secret returns 401
+    event = {
+        'dry_run': True,
+        'force': True,
+        'requestContext': {},
+        'headers': {}
+    }
+    response = orchestrator.handler(event, {})
+    assert response['statusCode'] == 401
+    assert 'unauthorized' in response['body']
+    assert mock_invoke.call_count == 0
+    
+    # 4. EventBridge-style invocation (no requestContext) is unaffected
+    mock_invoke.side_effect = [
+        {'metrics': [{'ticker': 'AAPL'}], 's3_key': 'test.json'}, # DATA_FETCH
+        {'candidates': [{'ticker': 'AAPL'}]} # QUANT_FILTER
+    ]
+    event = {
+        'dry_run': True,
+        'force': True
+    }
+    response = orchestrator.handler(event, {})
+    assert response['status'] == 'DRY_RUN_COMPLETE'
+
+
+@patch('orchestrator.invoke_lambda')
+def test_handler_universe_coverage(mock_invoke, setup_aws):
+    dynamodb, s3, sns = setup_aws
+    
+    # Seed mock fetch queue in S3
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    
+    # 10 tickers total:
+    # 6 fetched within 14 days, 4 fetched more than 14 days ago.
+    queue_state = {}
+    for i in range(1, 7):
+        queue_state[f'TICKER{i}'] = {
+            'lastFetched': (now - timedelta(days=5)).isoformat().replace('+00:00', 'Z'),
+            'lastStatus': 'SUCCESS'
+        }
+    for i in range(7, 11):
+        queue_state[f'TICKER{i}'] = {
+            'lastFetched': (now - timedelta(days=20)).isoformat().replace('+00:00', 'Z'),
+            'lastStatus': 'SUCCESS'
+        }
+        
+    import json
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='tickers-cache/fetch-queue_v1.json',
+        Body=json.dumps(queue_state)
+    )
+    
+    # Mock invokes
+    mock_invoke.side_effect = [
+        {'metrics': [{'ticker': 'AAPL'}], 's3_key': 'test.json'}, # DATA_FETCH
+        {'candidates': [{'ticker': 'AAPL', 'companyName': 'Apple'}]}, # QUANT_FILTER
+        {'news': {'AAPL': 'Good news'}}, # NEWS_FETCH
+        {'scores': [{'ticker': 'AAPL', 'companyName': 'Apple', 'compositeScore': 8.5, 'verdict': 'INVESTIGATE'}], 'total_cost_usd': 0.1}, # AI_SCORER
+        {'status': 'ok'} # MONTE_CARLO
+    ]
+    
+    response = orchestrator.handler({'force': True}, {})
+    
+    assert response['status'] == 'COMPLETE'
+    
+    # Check Weekly Runs
+    runs_table = dynamodb.Table('TestWeeklyRuns')
+    runs = runs_table.scan()['Items']
+    assert runs[0]['status'] == 'COMPLETE'
+    
+    # 6 out of 10 fetched within 14 days
+    assert runs[0]['stocksScreenedCumulative'] == 6
+    assert float(runs[0]['universeCoveragePct']) == 60.0
+
+def test_handler_prioritize_ticker(setup_aws):
+    dynamodb, s3, sns = setup_aws
+    
+    # Initialize queue in S3
+    queue_state = {
+        'AAPL': {'lastFetched': '2026-05-15T00:00:00Z', 'lastStatus': 'SUCCESS'}
+    }
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='tickers-cache/fetch-queue_v1.json',
+        Body=json.dumps(queue_state)
+    )
+    
+    # Trigger prioritize
+    event = {
+        'prioritize_ticker': 'AAPL'
+    }
+    
+    response = orchestrator.handler(event, {})
+    
+    # Assert successful prioritization return format
+    assert response['statusCode'] == 200
+    body = json.loads(response['body'])
+    assert body['status'] == 'SUCCESS'
+    
+    # Check queue state in S3
+    obj = s3.get_object(Bucket='test-bucket', Key='tickers-cache/fetch-queue_v1.json')
+    updated_queue = json.loads(obj['Body'].read().decode('utf-8'))
+    
+    assert updated_queue['AAPL']['lastFetched'] == '1970-01-01T00:00:00Z'
+    assert updated_queue['AAPL']['lastStatus'] == 'PRIORITIZED'
+
+def test_handler_prioritize_ticker_http(setup_aws):
+    dynamodb, s3, sns = setup_aws
+    
+    # Initialize queue in S3
+    queue_state = {
+        'AAPL': {'lastFetched': '2026-05-15T00:00:00Z', 'lastStatus': 'SUCCESS'}
+    }
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='tickers-cache/fetch-queue_v1.json',
+        Body=json.dumps(queue_state)
+    )
+    
+    # Trigger prioritize via HTTP proxy event mock
+    event = {
+        'requestContext': {},
+        'headers': {'x-trigger-secret': 'my-secret'},
+        'body': json.dumps({'prioritize_ticker': 'AAPL'})
+    }
+    
+    # Mock trigger secret verification to pass
+    with patch('orchestrator.get_trigger_secret', return_value='my-secret'):
+        response = orchestrator.handler(event, {})
+        
+    assert response['statusCode'] == 200
+    body = json.loads(response['body'])
+    assert body['status'] == 'SUCCESS'
+
 
 
 

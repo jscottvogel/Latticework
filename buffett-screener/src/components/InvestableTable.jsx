@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './TableStyles.css';
 
-export default function InvestableTable({ rollingScores }) {
+export default function InvestableTable({ rollingScores, onPrioritize }) {
   const [expandedRow, setExpandedRow] = useState(null);
 
   // Filter and sort
@@ -69,6 +69,20 @@ export default function InvestableTable({ rollingScores }) {
                         <h4>Last Seen</h4>
                         <p>{score.lastSeen}</p>
                       </div>
+                      {onPrioritize && (
+                        <div className="expanded-section" style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPrioritize(score.ticker);
+                            }}
+                            className="run-now-btn"
+                            style={{ padding: '8px 16px', fontSize: '0.85rem', backgroundColor: '#1A6B3C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            ⚡ Prioritize Rescreen
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

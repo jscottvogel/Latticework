@@ -10,6 +10,8 @@ const schema = a.schema({
       candidatesScored: a.integer(),
       status: a.string(),
       totalCostUsd: a.float(),
+      stocksScreenedCumulative: a.integer(),
+      universeCoveragePct: a.float(),
     })
     .identifier(['runId'])
     .authorization(allow => [allow.publicApiKey()]),
@@ -26,6 +28,8 @@ const schema = a.schema({
       scoreSimplicity: a.float(),
       scoreMarginOfSafety: a.float(),
       compositeScore: a.float(),
+      aiReportedComposite: a.float(),
+      revenueExposure: a.string(),
       verdict: a.string(),
       confidence: a.string(),
       oneLineThesis: a.string(),
@@ -46,6 +50,7 @@ const schema = a.schema({
       companyName: a.string(),
       sector: a.string(),
       appearancesLast4Weeks: a.integer(),
+      appearanceRate: a.float(),
       avgCompositeScore: a.float(),
       investigateCount: a.integer(),
       isInvestable: a.boolean(),
@@ -55,6 +60,29 @@ const schema = a.schema({
       updatedAt: a.string(),
     })
     .identifier(['ticker'])
+    .authorization(allow => [allow.publicApiKey()]),
+  ThemeRegistry: a
+    .model({
+      themeId: a.id().required(),
+      name: a.string().required(),
+      description: a.string(),
+      keywords: a.string().array(),
+    })
+    .identifier(['themeId'])
+    .authorization(allow => [allow.publicApiKey()]),
+
+  ThemeBasket: a
+    .model({
+      themeId: a.string().required(),
+      ticker: a.string().required(),
+      companyName: a.string(),
+      sector: a.string(),
+      avgCompositeScore: a.float(),
+      latestVerdict: a.string(),
+      isInvestable: a.boolean(),
+      matchedKeywords: a.string().array(),
+    })
+    .identifier(['themeId', 'ticker'])
     .authorization(allow => [allow.publicApiKey()]),
 });
 

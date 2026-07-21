@@ -93,7 +93,11 @@ REQUIRED OUTPUT FORMAT — return ONLY this JSON object:
   "key_risks": ["risk1", "risk2"],
   "red_flags": [],
   "verdict": "INVESTIGATE",
-  "confidence": "HIGH"
+  "confidence": "HIGH",
+  "revenue_exposure": {
+    "segment_or_geography_name": 0.40,
+    "another_name": 0.30
+  }
 }
 
 composite_score = moat*0.30 + financial_health*0.25 + management*0.20 + simplicity*0.15 + margin_of_safety*0.10
@@ -104,6 +108,7 @@ RULES:
 - If data insufficient: confidence = LOW.
 - verdict: INVESTIGATE if composite>=7, MONITOR if 5-7, AVOID if <5.
 - Reward consistency. Penalise debt and complexity.
+- In revenue_exposure, output a map of segments/geographies to their estimated percentage of total revenue as floats (0.0 to 1.0).
 - CRITICAL: Escape any double quotes inside JSON string values (e.g. \") or use single quotes for text."""
 
 def build_user_message(metrics, news_summary):
@@ -212,6 +217,55 @@ def estimate_cost(input_tokens, output_tokens):
     out_cost = (output_tokens / 1_000_000.0) * 4.00
     return in_cost + out_cost
 
+def verify_revenue_exposure(ticker, result, metrics, news_summary):
+    # Get exposure claims from AI
+    exposure = result.get('revenue_exposure', {})
+    if not isinstance(exposure, dict):
+        return
+        
+    description = (metrics.get('description') or '').lower()
+    sector = (metrics.get('sector') or '').lower()
+    news = (news_summary or '').lower()
+    
+    # Combined search corpus
+    corpus = " ".join([description, sector, news])
+    
+    red_flags = result.setdefault('red_flags', [])
+    if not isinstance(red_flags, list):
+        red_flags = []
+        result['red_flags'] = red_flags
+        
+    for term, pct in exposure.items():
+        # Only verify terms with significant exposure (e.g., > 10% exposure)
+        try:
+            val = float(pct)
+        except:
+            continue
+            
+        if val <= 0.10:
+            continue
+            
+        # Clean term for basic checking
+        clean_term = term.lower().strip()
+        if not clean_term:
+            continue
+            
+        # Check if the term exists in the description, sector, or news
+        words = [w for w in clean_term.split() if len(w) > 2]
+        if not words:
+            words = [clean_term]
+            
+        found = False
+        for word in words:
+            if word in corpus:
+                found = True
+                break
+                
+        if not found:
+            warning = f"Mismatched revenue exposure: '{term}' not mentioned in overview/news"
+            print(f"Drift alert for {ticker}: {warning}")
+            red_flags.append(warning)
+
 def handler(event, context):
     print("aiScorer started")
     
@@ -233,6 +287,35 @@ def handler(event, context):
         news_summary = candidate.get('news_summary', 'No recent news.')
         
         result = score_stock(metrics, news_summary, api_key)
+        
+        # Verify revenue exposure
+        verify_revenue_exposure(ticker, result, metrics, news_summary)
+        
+        # Recompute composite score server-side
+        sub_scores = result.get('scores', {})
+        moat = sub_scores.get('moat')
+        fin = sub_scores.get('financial_health')
+        mgt = sub_scores.get('management')
+        sim = sub_scores.get('simplicity')
+        saf = sub_scores.get('margin_of_safety')
+        
+        recomputed = None
+        try:
+            if all(isinstance(x, (int, float)) for x in [moat, fin, mgt, sim, saf]):
+                recomputed = moat * 0.30 + fin * 0.25 + mgt * 0.20 + sim * 0.15 + saf * 0.10
+            else:
+                recomputed = float(moat) * 0.30 + float(fin) * 0.25 + float(mgt) * 0.20 + float(sim) * 0.15 + float(saf) * 0.10
+        except Exception as e:
+            print(f"Warning: Could not recompute composite score for ticker {ticker}: sub-scores are not numeric. Error: {e}")
+            
+        ai_reported = result.get('composite_score')
+        result['ai_reported_composite'] = ai_reported
+        
+        if recomputed is not None:
+            result['composite_score'] = recomputed
+        else:
+            result['composite_score'] = ai_reported
+
         result['sector'] = metrics.get('sector')
         result['metrics'] = metrics  # Preserve raw metrics for Monte Carlo
         scores.append(result)
@@ -282,6 +365,8 @@ def handler(event, context):
                     'scoreSimplicity': to_dec(s.get('scores', {}).get('simplicity')),
                     'scoreMarginOfSafety': to_dec(s.get('scores', {}).get('margin_of_safety')),
                     'compositeScore': to_dec(s.get('composite_score')),
+                    'aiReportedComposite': to_dec(s.get('ai_reported_composite')),
+                    'revenueExposure': json.dumps(s.get('revenue_exposure', {})),
                     'verdict': s.get('verdict'),
                     'confidence': s.get('confidence'),
                     'oneLineThesis': s.get('one_line_thesis'),

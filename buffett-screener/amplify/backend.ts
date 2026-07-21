@@ -25,10 +25,20 @@ const stack = Stack.of(backend.data);
 const weeklyRunsTable = backend.data.resources.tables['WeeklyRun'];
 const stockScoresTable = backend.data.resources.tables['StockScore'];
 const rollingScoresTable = backend.data.resources.tables['RollingScore'];
+const themeRegistryTable = backend.data.resources.tables['ThemeRegistry'];
+const themeBasketTable = backend.data.resources.tables['ThemeBasket'];
 
 const rawFinancialsTable = new dynamodb.Table(stack, 'RawFinancials', {
   partitionKey: { name: 'ticker', type: dynamodb.AttributeType.STRING },
   sortKey: { name: 'runId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+  removalPolicy: RemovalPolicy.RETAIN,
+});
+
+const scoreOutcomesTable = new dynamodb.Table(stack, 'ScoreOutcome', {
+  partitionKey: { name: 'runId', type: dynamodb.AttributeType.STRING },
+  sortKey: { name: 'tickerHorizon', type: dynamodb.AttributeType.STRING },
   billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
   pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
   removalPolicy: RemovalPolicy.RETAIN,
@@ -40,9 +50,20 @@ const rawFinancialsTable = new dynamodb.Table(stack, 'RawFinancials', {
 
 const dataBucket = new s3.Bucket(stack, 'BuffettScreenerData', {
   versioned: true,
-  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+  blockPublicAccess: new s3.BlockPublicAccess({
+    blockPublicAcls: true,
+    ignorePublicAcls: true,
+    blockPublicPolicy: false,
+    restrictPublicBuckets: false,
+  }),
   removalPolicy: RemovalPolicy.RETAIN,
 });
+
+dataBucket.addToResourcePolicy(new iam.PolicyStatement({
+  actions: ['s3:GetObject'],
+  resources: [dataBucket.arnForObjects('dashboard/*')],
+  principals: [new iam.AnyPrincipal()],
+}));
 
 // ---------------------------------------------------------
 // STEP 4: IAM ROLE FOR LAMBDA FUNCTIONS
@@ -63,6 +84,7 @@ const lambdaPolicy = new iam.PolicyStatement({
     stockScoresTable.tableArn,
     rollingScoresTable.tableArn,
     rawFinancialsTable.tableArn,
+    scoreOutcomesTable.tableArn,
   ]
 });
 
@@ -139,8 +161,35 @@ const monteCarloLambda = new lambda.Function(stack, 'MonteCarlo', {
   memorySize: 256,
 });
 
+const backtestValidatorLambda = new lambda.Function(stack, 'BacktestValidator', {
+  runtime: lambda.Runtime.PYTHON_3_11,
+  handler: 'backtestValidator.handler',
+  code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
+  architecture: lambda.Architecture.ARM_64,
+  timeout: Duration.seconds(900),
+  memorySize: 512,
+});
+
+const themeBasketWorkerLambda = new lambda.Function(stack, 'ThemeBasketWorker', {
+  runtime: lambda.Runtime.PYTHON_3_11,
+  handler: 'themeBasketWorker.handler',
+  code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
+  architecture: lambda.Architecture.ARM_64,
+  timeout: Duration.seconds(300),
+  memorySize: 512,
+});
+
 // Grant permissions
-const allLambdas = [orchestratorLambda, dataFetchLambda, quantFilterLambda, newsFetchLambda, aiScorerLambda, monteCarloLambda];
+const allLambdas = [
+  orchestratorLambda, 
+  dataFetchLambda, 
+  quantFilterLambda, 
+  newsFetchLambda, 
+  aiScorerLambda, 
+  monteCarloLambda, 
+  backtestValidatorLambda,
+  themeBasketWorkerLambda
+];
 
 allLambdas.forEach(fn => {
   fn.addToRolePolicy(lambdaPolicy);
@@ -178,7 +227,6 @@ newsFetchLambda.addEnvironment('AI_SCORER_FUNCTION_NAME', aiScorerLambda.functio
 aiScorerLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
 monteCarloLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
 
-orchestratorLambda.addEnvironment('DATA_FETCH_FUNCTION_NAME', dataFetchLambda.functionName);
 orchestratorLambda.addEnvironment('DYNAMODB_TABLE_WEEKLY_RUNS', weeklyRunsTable.tableName);
 orchestratorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
 orchestratorLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.tableName);
@@ -186,11 +234,28 @@ orchestratorLambda.addEnvironment('DYNAMODB_TABLE_RAW_FINANCIALS', rawFinancials
 orchestratorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 orchestratorLambda.addEnvironment('SNS_ALERT_ARN', `arn:aws:sns:${stack.region}:${stack.account}:buffett-screener-alerts`);
 
+backtestValidatorLambda.addEnvironment('DYNAMODB_TABLE_SCORE_OUTCOMES', scoreOutcomesTable.tableName);
+backtestValidatorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
+backtestValidatorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
+backtestValidatorLambda.addEnvironment('ALPHA_VANTAGE_TIER', 'premium');
+
+themeBasketWorkerLambda.addEnvironment('DYNAMODB_TABLE_THEME_REGISTRY', themeRegistryTable.tableName);
+themeBasketWorkerLambda.addEnvironment('DYNAMODB_TABLE_THEME_BASKET', themeBasketTable.tableName);
+themeBasketWorkerLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.tableName);
+themeBasketWorkerLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
+
 // EventBridge Scheduler (Mon-Fri at 8 AM CST / 2 PM UTC)
 const dailyRule = new events.Rule(stack, 'DailyRunRule', {
   schedule: events.Schedule.cron({ minute: '0', hour: '14', weekDay: 'MON-FRI' }),
 });
 dailyRule.addTarget(new targets.LambdaFunction(orchestratorLambda));
+
+// EventBridge Scheduler for weekly backtest validation (Sunday at 4 PM UTC / 10 AM CST)
+const weeklyValidationRule = new events.Rule(stack, 'WeeklyValidationRule', {
+  schedule: events.Schedule.cron({ minute: '0', hour: '16', weekDay: 'SUN' }),
+});
+weeklyValidationRule.addTarget(new targets.LambdaFunction(backtestValidatorLambda));
+weeklyValidationRule.addTarget(new targets.LambdaFunction(themeBasketWorkerLambda));
 
 // Add Function URL for manual trigger
 const orchestratorUrl = orchestratorLambda.addFunctionUrl({
@@ -204,5 +269,7 @@ const orchestratorUrl = orchestratorLambda.addFunctionUrl({
 backend.addOutput({
   custom: {
     orchestratorUrl: orchestratorUrl.url,
+    dataBucketName: dataBucket.bucketName,
+    awsRegion: stack.region,
   },
 });
