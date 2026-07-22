@@ -752,6 +752,27 @@ def handler(event, context):
         print('Exporting dashboard...')
         export_dashboard_to_s3(run_id, scores)
         
+        # Trigger BacktestValidator and ThemeBasketWorker asynchronously
+        try:
+            validator_fn = os.environ.get('BACKTEST_VALIDATOR_FUNCTION_NAME')
+            worker_fn = os.environ.get('THEME_BASKET_WORKER_FUNCTION_NAME')
+            lambda_client = boto3.client('lambda')
+            
+            if validator_fn:
+                print("Triggering BacktestValidator asynchronously...")
+                lambda_client.invoke(
+                    FunctionName=validator_fn,
+                    InvocationType='Event'
+                )
+            if worker_fn:
+                print("Triggering ThemeBasketWorker asynchronously...")
+                lambda_client.invoke(
+                    FunctionName=worker_fn,
+                    InvocationType='Event'
+                )
+        except Exception as trigger_err:
+            print(f"Warning: Failed to trigger validation/theme workers: {trigger_err}")
+        
         # Complete
         import decimal
         runs_table.update_item(
