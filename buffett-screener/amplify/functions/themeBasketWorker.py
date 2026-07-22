@@ -121,10 +121,10 @@ def handler(event, context):
 
     for score in rolling_scores:
         ticker = score['ticker']
-        company_name = score.get('companyName', '')
-        sector = score.get('sector', '')
-        latest_thesis = score.get('latestThesis', '')
-        latest_verdict = score.get('latestVerdict', '')
+        company_name = score.get('companyName') or ''
+        sector = score.get('sector') or ''
+        latest_thesis = score.get('latestThesis') or ''
+        latest_verdict = score.get('latestVerdict') or ''
         
         # Combine fields into a search string for keyword scanning
         search_blob = " ".join([
