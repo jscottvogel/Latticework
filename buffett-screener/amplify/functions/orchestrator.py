@@ -473,6 +473,58 @@ def handler(event, context):
         except Exception as parse_err:
             print(f"Failed to parse request body: {parse_err}")
             
+    generate_memo = body_data.get('generate_memo') or event.get('generate_memo')
+    if generate_memo:
+        run_id = body_data.get('run_id') or event.get('run_id')
+        print(f"Routing request to generate memo for ticker: {generate_memo} (run: {run_id})")
+        fn_name = os.environ.get('MEMO_GENERATOR_FUNCTION_NAME')
+        if not fn_name:
+            return {
+                "statusCode": 500,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Methods": "*"
+                },
+                "body": json.dumps({"status": "FAILED", "reason": "MEMO_GENERATOR_FUNCTION_NAME environment variable not set."})
+            }
+        try:
+            client = boto3.client('lambda')
+            response = client.invoke(
+                FunctionName=fn_name,
+                InvocationType='RequestResponse',
+                Payload=json.dumps({
+                    'ticker': generate_memo,
+                    'run_id': run_id
+                })
+            )
+            result = json.loads(response['Payload'].read().decode('utf-8'))
+            statusCode = result.get('statusCode', 200)
+            body = result.get('body', '{}')
+            
+            return {
+                "statusCode": statusCode,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Methods": "*"
+                },
+                "body": body
+            }
+        except Exception as e:
+            return {
+                "statusCode": 500,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Methods": "*"
+                },
+                "body": json.dumps({"status": "FAILED", "reason": str(e)})
+            }
+
     prioritize_ticker = body_data.get('prioritize_ticker') or event.get('prioritize_ticker')
     if prioritize_ticker:
         print(f"Prioritizing ticker for next scan: {prioritize_ticker}")

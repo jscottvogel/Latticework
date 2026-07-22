@@ -7,6 +7,7 @@ import ScoreCard from './components/ScoreCard';
 import Footer from './components/Footer';
 import ValidationPanel from './components/ValidationPanel';
 import ThemeBaskets from './components/ThemeBaskets';
+import MemoModal from './components/MemoModal';
 import './App.css';
 
 import { generateClient } from 'aws-amplify/data';
@@ -24,6 +25,8 @@ function App() {
   const [ trendData, setTrendData ] = useState( [] );
   const [ selectedRunId, setSelectedRunId ] = useState( '' );
   const [ selectedRunScores, setSelectedRunScores ] = useState( [] );
+  const [ activeMemo, setActiveMemo ] = useState( null );
+  const [ isGeneratingMemo, setIsGeneratingMemo ] = useState( false );
 
   useEffect( () => {
     async function fetchData() {
@@ -198,6 +201,61 @@ function App() {
     }
   }, [] );
 
+  const handleGenerateMemo = useCallback( async ( ticker, companyName, runId ) => {
+    const bucketName = outputs?.custom?.dataBucketName;
+    const orchestratorUrl = outputs?.custom?.orchestratorUrl;
+    
+    if ( !bucketName || !orchestratorUrl ) {
+      alert( "Configurations not found. Verify deployment." );
+      return;
+    }
+    
+    const s3Url = `https://${bucketName}.s3.amazonaws.com/dashboard/memos/${runId}/${ticker}.md`;
+    
+    setIsGeneratingMemo( true );
+    try {
+      // 1. Attempt to fetch memo directly if already generated
+      const cachedRes = await fetch( s3Url );
+      if ( cachedRes.ok ) {
+        const text = await cachedRes.text();
+        setActiveMemo( { ticker, companyName, content: text } );
+        return;
+      }
+      
+      // 2. Call on-demand orchestrator generation if not cached
+      const headers = { 'Content-Type': 'application/json' };
+      const triggerSecret = import.meta.env.VITE_TRIGGER_SECRET;
+      if ( triggerSecret ) {
+        headers[ 'X-Trigger-Secret' ] = triggerSecret;
+      }
+      
+      const res = await fetch( orchestratorUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify( { generate_memo: ticker, run_id: runId } )
+      } );
+      
+      if ( !res.ok ) {
+        const errData = await res.json();
+        throw new Error( errData.error || errData.reason || res.statusText );
+      }
+      
+      // 3. Re-fetch from S3
+      const generationRes = await fetch( s3Url );
+      if ( generationRes.ok ) {
+        const text = await generationRes.text();
+        setActiveMemo( { ticker, companyName, content: text } );
+      } else {
+        throw new Error( "Memo was generated but could not be retrieved from S3." );
+      }
+    } catch ( err ) {
+      console.error( err );
+      alert( `Failed to load investment memo: ${err.message}` );
+    } finally {
+      setIsGeneratingMemo( false );
+    }
+  }, [] );
+
   // Expose to window for console execution
   useEffect( () => {
     window.runBuffettPipeline = handleRunNow;
@@ -258,7 +316,7 @@ function App() {
         ) : (
           <div className="tab-content">
             { activeTab === 'investable' && (
-              <InvestableTable rollingScores={ rollingScores } onPrioritize={ handlePrioritizeScan } />
+              <InvestableTable rollingScores={ rollingScores } onPrioritize={ handlePrioritizeScan } onGenerateMemo={ handleGenerateMemo } newestRunId={ weeklyRuns[0]?.runId } />
             ) }
 
             { activeTab === 'thisWeek' && (
@@ -290,7 +348,7 @@ function App() {
                   </div>
                 </div>
 
-                <WeeklyLeaderboard stockScores={ selectedRunScores } onPrioritize={ handlePrioritizeScan } />
+                <WeeklyLeaderboard stockScores={ selectedRunScores } onPrioritize={ handlePrioritizeScan } onGenerateMemo={ handleGenerateMemo } />
                 <div style={ { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' } }>
                   { selectedRunScores
                     .filter( s => s.verdict === 'INVESTIGATE' || s.verdict === 'MONITOR' )
@@ -312,11 +370,50 @@ function App() {
             ) }
 
             { activeTab === 'themes' && (
-              <ThemeBaskets onPrioritize={ handlePrioritizeScan } />
+              <ThemeBaskets onPrioritize={ handlePrioritizeScan } onGenerateMemo={ handleGenerateMemo } newestRunId={ weeklyRuns[0]?.runId } />
             ) }
           </div>
         ) }
       </main>
+      
+      { isGeneratingMemo && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: 'white',
+          fontSize: '1.2rem',
+          zIndex: 1001,
+          flexDirection: 'column',
+          gap: '15px'
+        }}>
+          <div className="spinner" style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #1A6B3C', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite' }}></div>
+          <div>Generating buy-side investment memo with Claude...</div>
+          <div style={{ fontSize: '0.85rem', color: '#ccc' }}>This may take 10-15 seconds.</div>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      ) }
+
+      { activeMemo && (
+        <MemoModal
+          ticker={ activeMemo.ticker }
+          companyName={ activeMemo.companyName }
+          content={ activeMemo.content }
+          onClose={ () => setActiveMemo( null ) }
+        />
+      ) }
+
       <Footer />
     </div>
   );

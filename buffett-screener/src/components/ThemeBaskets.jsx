@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import outputs from '../../amplify_outputs.json';
 import './TableStyles.css';
 
-export default function ThemeBaskets({ onPrioritize }) {
+export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [basketsData, setBasketsData] = useState(null);
@@ -148,13 +148,13 @@ export default function ThemeBaskets({ onPrioritize }) {
               <th>Latest Verdict</th>
               <th>Investability Status</th>
               <th>Matched Keywords</th>
-              {onPrioritize && <th>Actions</th>}
+              {(onPrioritize || onGenerateMemo) && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {stocks.length === 0 ? (
               <tr>
-                <td colSpan={onPrioritize ? "8" : "7"} className="empty-state" style={{ padding: '3rem', textAlign: 'center', color: '#888' }}>
+                <td colSpan={(onPrioritize || onGenerateMemo) ? "8" : "7"} className="empty-state" style={{ padding: '3rem', textAlign: 'center', color: '#888' }}>
                   No stocks currently match the rules/keywords for this thematic basket.
                 </td>
               </tr>
@@ -193,16 +193,30 @@ export default function ThemeBaskets({ onPrioritize }) {
                       ))}
                     </div>
                   </td>
-                  {onPrioritize && (
+                  {(onPrioritize || onGenerateMemo) && (
                     <td>
-                      <button 
-                        onClick={() => onPrioritize(stock.ticker)}
-                        className="run-now-btn"
-                        style={{ padding: '4px 8px', fontSize: '0.75rem', backgroundColor: '#1A6B3C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                        title="Prioritize rescreening this stock in the next run"
-                      >
-                        ⚡ Prioritize
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        {onGenerateMemo && newestRunId && (
+                          <button
+                            onClick={() => onGenerateMemo(stock.ticker, stock.companyName, newestRunId)}
+                            className="run-now-btn"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem', backgroundColor: '#475569', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                            title="Generate/view buy-side research memo"
+                          >
+                            📝 Memo
+                          </button>
+                        )}
+                        {onPrioritize && (
+                          <button 
+                            onClick={() => onPrioritize(stock.ticker)}
+                            className="run-now-btn"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem', backgroundColor: '#1A6B3C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                            title="Prioritize rescreening this stock in the next run"
+                          >
+                            ⚡ Prioritize
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>

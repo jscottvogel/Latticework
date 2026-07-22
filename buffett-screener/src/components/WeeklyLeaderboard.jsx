@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './TableStyles.css';
 
-export default function WeeklyLeaderboard({ stockScores, onPrioritize }) {
+export default function WeeklyLeaderboard({ stockScores, onPrioritize, onGenerateMemo }) {
   const [expandedRow, setExpandedRow] = useState(null);
   const [filterType, setFilterType] = useState('active'); // 'active' (default) or 'all'
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,8 +199,20 @@ export default function WeeklyLeaderboard({ stockScores, onPrioritize }) {
                           {score.redFlags?.map((r, i) => <li key={i}>{r}</li>) || <li>None</li>}
                         </ul>
                       </div>
-                      {onPrioritize && (
-                        <div className="expanded-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div className="expanded-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                        {onGenerateMemo && score.runId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onGenerateMemo(score.ticker, score.companyName, score.runId);
+                            }}
+                            className="run-now-btn"
+                            style={{ padding: '8px 16px', fontSize: '0.85rem', backgroundColor: '#475569', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            📝 Research Memo
+                          </button>
+                        )}
+                        {onPrioritize && (
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -211,8 +223,8 @@ export default function WeeklyLeaderboard({ stockScores, onPrioritize }) {
                           >
                             ⚡ Prioritize Rescreen
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

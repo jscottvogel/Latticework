@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './TableStyles.css';
 
-export default function InvestableTable({ rollingScores, onPrioritize }) {
+export default function InvestableTable({ rollingScores, onPrioritize, onGenerateMemo, newestRunId }) {
   const [expandedRow, setExpandedRow] = useState(null);
 
   // Filter and sort
@@ -69,8 +69,20 @@ export default function InvestableTable({ rollingScores, onPrioritize }) {
                         <h4>Last Seen</h4>
                         <p>{score.lastSeen}</p>
                       </div>
-                      {onPrioritize && (
-                        <div className="expanded-section" style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                      <div className="expanded-section" style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto', gap: '10px' }}>
+                        {onGenerateMemo && newestRunId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onGenerateMemo(score.ticker, score.companyName, newestRunId);
+                            }}
+                            className="run-now-btn"
+                            style={{ padding: '8px 16px', fontSize: '0.85rem', backgroundColor: '#475569', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            📝 Research Memo
+                          </button>
+                        )}
+                        {onPrioritize && (
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -81,8 +93,8 @@ export default function InvestableTable({ rollingScores, onPrioritize }) {
                           >
                             ⚡ Prioritize Rescreen
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

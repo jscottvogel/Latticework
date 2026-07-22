@@ -179,6 +179,15 @@ const themeBasketWorkerLambda = new lambda.Function(stack, 'ThemeBasketWorker', 
   memorySize: 512,
 });
 
+const memoGeneratorLambda = new lambda.Function(stack, 'MemoGenerator', {
+  runtime: lambda.Runtime.PYTHON_3_11,
+  handler: 'memoGenerator.handler',
+  code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
+  architecture: lambda.Architecture.ARM_64,
+  timeout: Duration.seconds(300),
+  memorySize: 512,
+});
+
 // Grant permissions
 const allLambdas = [
   orchestratorLambda, 
@@ -188,7 +197,8 @@ const allLambdas = [
   aiScorerLambda, 
   monteCarloLambda, 
   backtestValidatorLambda,
-  themeBasketWorkerLambda
+  themeBasketWorkerLambda,
+  memoGeneratorLambda
 ];
 
 allLambdas.forEach(fn => {
@@ -204,6 +214,7 @@ quantFilterLambda.grantInvoke(orchestratorLambda);
 newsFetchLambda.grantInvoke(orchestratorLambda);
 aiScorerLambda.grantInvoke(orchestratorLambda);
 monteCarloLambda.grantInvoke(orchestratorLambda);
+memoGeneratorLambda.grantInvoke(orchestratorLambda);
 
 // Set environment variables
 orchestratorLambda.addEnvironment('DATA_FETCH_FUNCTION_NAME', dataFetchLambda.functionName);
@@ -211,6 +222,7 @@ orchestratorLambda.addEnvironment('QUANT_FILTER_FUNCTION_NAME', quantFilterLambd
 orchestratorLambda.addEnvironment('NEWS_FETCH_FUNCTION_NAME', newsFetchLambda.functionName);
 orchestratorLambda.addEnvironment('AI_SCORER_FUNCTION_NAME', aiScorerLambda.functionName);
 orchestratorLambda.addEnvironment('MONTE_CARLO_FUNCTION_NAME', monteCarloLambda.functionName);
+orchestratorLambda.addEnvironment('MEMO_GENERATOR_FUNCTION_NAME', memoGeneratorLambda.functionName);
 
 // Set environment variables
 dataFetchLambda.addEnvironment('QUANT_FILTER_FUNCTION_NAME', quantFilterLambda.functionName);
@@ -243,6 +255,10 @@ themeBasketWorkerLambda.addEnvironment('DYNAMODB_TABLE_THEME_REGISTRY', themeReg
 themeBasketWorkerLambda.addEnvironment('DYNAMODB_TABLE_THEME_BASKET', themeBasketTable.tableName);
 themeBasketWorkerLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.tableName);
 themeBasketWorkerLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
+
+memoGeneratorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
+memoGeneratorLambda.addEnvironment('DYNAMODB_TABLE_RAW_FINANCIALS', rawFinancialsTable.tableName);
+memoGeneratorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 
 // EventBridge Scheduler (Mon-Fri at 8 AM CST / 2 PM UTC)
 const dailyRule = new events.Rule(stack, 'DailyRunRule', {

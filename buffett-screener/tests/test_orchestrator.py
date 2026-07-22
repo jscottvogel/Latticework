@@ -495,6 +495,58 @@ def test_handler_prioritize_ticker_http(setup_aws):
     body = json.loads(response['body'])
     assert body['status'] == 'SUCCESS'
 
+@patch('orchestrator.boto3.client')
+def test_handler_generate_memo_http(mock_boto_client, setup_aws):
+    dynamodb, s3, sns = setup_aws
+    os.environ['MEMO_GENERATOR_FUNCTION_NAME'] = 'TestMemoGenerator'
+    
+    mock_lambda_client = MagicMock()
+    mock_lambda_response = {
+        'Payload': MagicMock()
+    }
+    mock_lambda_response['Payload'].read.return_value = json.dumps({
+        'statusCode': 200,
+        'body': json.dumps({'status': 'SUCCESS', 'memoPath': 'dashboard/memos/2026-W01/AAPL.md'})
+    }).encode('utf-8')
+    
+    mock_lambda_client.invoke.return_value = mock_lambda_response
+    
+    def client_side_effect(service_name, *args, **kwargs):
+        if service_name == 'lambda':
+            return mock_lambda_client
+        return boto3.client(service_name, *args, **kwargs)
+        
+    mock_boto_client.side_effect = client_side_effect
+    
+    event = {
+        'requestContext': {},
+        'headers': {'x-trigger-secret': 'my-secret'},
+        'body': json.dumps({
+            'generate_memo': 'AAPL',
+            'run_id': '2026-W01'
+        })
+    }
+    
+    with patch('orchestrator.get_trigger_secret', return_value='my-secret'):
+        response = orchestrator.handler(event, {})
+        
+    assert response['statusCode'] == 200
+    headers = response['headers']
+    assert headers['Access-Control-Allow-Origin'] == '*'
+    
+    body = json.loads(response['body'])
+    assert body['status'] == 'SUCCESS'
+    assert body['memoPath'] == 'dashboard/memos/2026-W01/AAPL.md'
+    
+    mock_lambda_client.invoke.assert_called_once()
+    call_args = mock_lambda_client.invoke.call_args[1]
+    assert call_args['FunctionName'] == 'TestMemoGenerator'
+    payload = json.loads(call_args['Payload'])
+    assert payload['ticker'] == 'AAPL'
+    assert payload['run_id'] == '2026-W01'
+    
+    del os.environ['MEMO_GENERATOR_FUNCTION_NAME']
+
 
 
 
