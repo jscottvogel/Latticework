@@ -92,6 +92,10 @@ const lambdaPolicy = new iam.PolicyStatement({
     rollingScoresTable.tableArn,
     rawFinancialsTable.tableArn,
     scoreOutcomesTable.tableArn,
+    themeRegistryTable.tableArn,
+    themeRegistryTable.tableArn + '/index/*',
+    themeBasketTable.tableArn,
+    themeBasketTable.tableArn + '/index/*',
   ]
 });
 
