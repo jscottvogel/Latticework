@@ -508,27 +508,27 @@ def handler(event, context):
             }
         try:
             client = boto3.client('lambda')
-            response = client.invoke(
+            client.invoke(
                 FunctionName=fn_name,
-                InvocationType='RequestResponse',
+                InvocationType='Event',
                 Payload=json.dumps({
                     'ticker': generate_memo,
                     'run_id': run_id
                 })
             )
-            result = json.loads(response['Payload'].read().decode('utf-8'))
-            statusCode = result.get('statusCode', 200)
-            body = result.get('body', '{}')
             
             return {
-                "statusCode": statusCode,
+                "statusCode": 202,
                 "headers": {
                     "Content-Type": "application/json",
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
                     "Access-Control-Allow-Methods": "*"
                 },
-                "body": body
+                "body": json.dumps({
+                    "status": "GENERATING",
+                    "message": "Memo generation started asynchronously."
+                })
             }
         except Exception as e:
             return {

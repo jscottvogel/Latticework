@@ -248,13 +248,31 @@ function App() {
         throw new Error( errData.error || errData.reason || res.statusText );
       }
       
-      // 3. Re-fetch from S3
-      const generationRes = await fetch( s3Url );
-      if ( generationRes.ok ) {
-        const text = await generationRes.text();
-        setActiveMemo( { ticker, companyName, content: text } );
+      // 3. Poll S3 until the file is generated (max 90 seconds)
+      const pollInterval = 3000; // 3 seconds
+      const maxAttempts = 30;    // 30 attempts = 90 seconds
+      let generatedText = null;
+      
+      for ( let attempt = 1; attempt <= maxAttempts; attempt++ ) {
+        if ( attempt > 1 ) {
+          await new Promise( resolve => setTimeout( resolve, pollInterval ) );
+        }
+        
+        try {
+          const checkRes = await fetch( s3Url );
+          if ( checkRes.ok ) {
+            generatedText = await checkRes.text();
+            break;
+          }
+        } catch ( e ) {
+          console.warn( `Attempt ${attempt} to fetch memo from S3:`, e );
+        }
+      }
+      
+      if ( generatedText ) {
+        setActiveMemo( { ticker, companyName, content: generatedText } );
       } else {
-        throw new Error( "Memo was generated but could not be retrieved from S3." );
+        throw new Error( "Memo generation timed out. Please try again in a few moments." );
       }
     } catch ( err ) {
       console.error( err );

@@ -530,17 +530,18 @@ def test_handler_generate_memo_http(mock_boto_client, setup_aws):
     with patch('orchestrator.get_trigger_secret', return_value='my-secret'):
         response = orchestrator.handler(event, {})
         
-    assert response['statusCode'] == 200
+    assert response['statusCode'] == 202
     headers = response['headers']
     assert headers['Access-Control-Allow-Origin'] == '*'
     
     body = json.loads(response['body'])
-    assert body['status'] == 'SUCCESS'
-    assert body['memoPath'] == 'dashboard/memos/2026-W01/AAPL.md'
+    assert body['status'] == 'GENERATING'
+    assert 'started asynchronously' in body['message']
     
     mock_lambda_client.invoke.assert_called_once()
     call_args = mock_lambda_client.invoke.call_args[1]
     assert call_args['FunctionName'] == 'TestMemoGenerator'
+    assert call_args['InvocationType'] == 'Event'
     payload = json.loads(call_args['Payload'])
     assert payload['ticker'] == 'AAPL'
     assert payload['run_id'] == '2026-W01'
