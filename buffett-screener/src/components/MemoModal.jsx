@@ -13,16 +13,16 @@ function parseMarkdown(md) {
     .replace(/>/g, "&gt;");
     
   // Headers
-  html = html.replace(/^#\s+(.+)$/gm, '<h1 style="color: #1A6B3C; border-bottom: 2px solid #E2E8F0; padding-bottom: 8px; margin-top: 1.5rem; margin-bottom: 1rem;">$1</h1>');
-  html = html.replace(/^##\s+(.+)$/gm, '<h2 style="color: #2E8B57; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-top: 1.5rem; margin-bottom: 0.8rem;">$1</h2>');
-  html = html.replace(/^###\s+(.+)$/gm, '<h3 style="color: #4A5568; margin-top: 1.2rem; margin-bottom: 0.6rem;">$1</h3>');
+  html = html.replace(/^#\s+(.+)$/gm, '<h1 style="font-size: 1.75rem; line-height: 1.35; color: #1A6B3C; border-bottom: 2px solid #E2E8F0; padding-bottom: 8px; margin-top: 0.5rem; margin-bottom: 1.5rem; font-weight: 700;">$1</h1>');
+  html = html.replace(/^##\s+(.+)$/gm, '<h2 style="font-size: 1.3rem; line-height: 1.4; color: #2E8B57; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-top: 2rem; margin-bottom: 1rem; font-weight: 600;">$1</h2>');
+  html = html.replace(/^###\s+(.+)$/gm, '<h3 style="font-size: 1.1rem; line-height: 1.4; color: #4A5568; margin-top: 1.5rem; margin-bottom: 0.8rem; font-weight: 600;">$1</h3>');
   
   // Bold
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   
   // Lists
   // Match unordered lists starting with '-' or '*'
-  html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li style="margin-left: 1.5rem; margin-bottom: 4px; list-style-type: disc;">$1</li>');
+  html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li style="margin-left: 1.5rem; margin-bottom: 6px; list-style-type: disc; line-height: 1.55; color: #2D3748;">$1</li>');
   
   // Wrap consecutive list items in <ul>
   // A simple hack: replace </li>\n<li with </li><li
@@ -33,7 +33,7 @@ function parseMarkdown(md) {
   html = html.replace(/<\/ul>\s*<ul.*?>/g, '');
   
   // Bullet point highlights
-  html = html.replace(/•\s+(.+)$/gm, '<li style="margin-left: 1.5rem; margin-bottom: 4px; list-style-type: circle;">$1</li>');
+  html = html.replace(/•\s+(.+)$/gm, '<li style="margin-left: 1.5rem; margin-bottom: 6px; list-style-type: circle; line-height: 1.55; color: #2D3748;">$1</li>');
 
   // Paragraphs (split by double newlines, wrap in <p>)
   const blocks = html.split(/\n\n+/);
