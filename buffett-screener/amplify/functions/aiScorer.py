@@ -136,10 +136,24 @@ FINANCIAL METRICS:
 RECENT NEWS:
 {news_summary}"""
 
+def get_system_prompt():
+    s3_client = boto3.client('s3')
+    bucket = os.environ.get('S3_BUCKET')
+    if bucket:
+        try:
+            obj = s3_client.get_object(Bucket=bucket, Key='prompts/active_system_prompt.txt')
+            prompt = obj['Body'].read().decode('utf-8')
+            if prompt.strip():
+                print("Successfully loaded active system prompt from S3.")
+                return prompt
+        except Exception as e:
+            print(f"Could not load custom prompt from S3 (using default): {e}")
+    return BUFFETT_SYSTEM_PROMPT
+
 def _call_anthropic_api(api_key, user_msg, force_json=False):
     url = "https://api.anthropic.com/v1/messages"
     
-    sys_prompt = BUFFETT_SYSTEM_PROMPT
+    sys_prompt = get_system_prompt()
     if force_json:
         sys_prompt += "\n\nCRITICAL: YOU MUST RETURN ONLY VALID JSON. NO PREAMBLE. NO EXPLANATION."
         

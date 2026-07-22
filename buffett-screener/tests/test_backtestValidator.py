@@ -203,3 +203,52 @@ def test_handler(mock_urlopen, mock_get_key, setup_aws):
     response2 = backtestValidator.handler({}, {})
     assert response2['status'] == 'SUCCESS'
     assert response2['processed'] == 0
+
+@patch('backtestValidator._call_anthropic_api')
+@patch('backtestValidator.get_anthropic_key')
+def test_run_prompt_auto_tuning(mock_get_key, mock_call_api, setup_aws):
+    dynamodb, s3 = setup_aws
+    mock_get_key.return_value = 'test-key'
+    
+    # Mock optimized prompt response from Claude
+    mock_call_api.return_value = "```text\n" + ("Optimized prompt text here containing composite_score. " * 20) + "\n```"
+    
+    # 5 matched pairs to trigger auto-tuning
+    matched_pairs = [
+        # False Positives
+        {
+            'score': {'ticker': 'AAPL', 'compositeScore': 8.0, 'oneLineThesis': 'Great'},
+            'outcome': {'excessReturnPct': -0.05}
+        },
+        {
+            'score': {'ticker': 'MSFT', 'compositeScore': 8.5, 'oneLineThesis': 'Great'},
+            'outcome': {'excessReturnPct': -0.04}
+        },
+        # False Negatives
+        {
+            'score': {'ticker': 'TSLA', 'compositeScore': 4.5, 'oneLineThesis': 'Avoid'},
+            'outcome': {'excessReturnPct': 0.10}
+        },
+        {
+            'score': {'ticker': 'AMZN', 'compositeScore': 4.0, 'oneLineThesis': 'Avoid'},
+            'outcome': {'excessReturnPct': 0.08}
+        },
+        # Good Prediction
+        {
+            'score': {'ticker': 'GOOG', 'compositeScore': 7.0, 'oneLineThesis': 'Neutral'},
+            'outcome': {'excessReturnPct': 0.03}
+        }
+    ]
+    
+    # Case 1: Healthy correlation (>= 0.15) -> Should skip auto-tuning
+    backtestValidator.run_prompt_auto_tuning(matched_pairs, 0.25, 'test-bucket')
+    mock_call_api.assert_not_called()
+    
+    # Case 2: Unhealthy correlation (< 0.15) -> Should run auto-tuning and save to S3
+    backtestValidator.run_prompt_auto_tuning(matched_pairs, -0.10, 'test-bucket')
+    mock_call_api.assert_called_once()
+    
+    # Verify S3 file was written
+    obj = s3.get_object(Bucket='test-bucket', Key='prompts/active_system_prompt.txt')
+    saved_prompt = obj['Body'].read().decode('utf-8')
+    assert saved_prompt == ("Optimized prompt text here containing composite_score. " * 20).strip()

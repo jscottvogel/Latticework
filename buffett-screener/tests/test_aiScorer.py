@@ -148,3 +148,23 @@ def test_verify_revenue_exposure():
     assert len(result2['red_flags']) == 2
     assert "Mismatched revenue exposure: 'cloud' not mentioned in overview/news" in result2['red_flags']
     assert "Mismatched revenue exposure: 'russia' not mentioned in overview/news" in result2['red_flags']
+
+def test_get_system_prompt_custom(setup_aws):
+    # Set environment variables for testing S3 bucket access
+    os.environ['S3_BUCKET'] = 'test-bucket'
+    
+    # 1. No prompt in S3 -> should fallback to BUFFETT_SYSTEM_PROMPT
+    p = aiScorer.get_system_prompt()
+    assert p == aiScorer.BUFFETT_SYSTEM_PROMPT
+    
+    # 2. Put custom prompt in S3
+    s3 = boto3.client('s3', region_name='us-east-1')
+    s3.create_bucket(Bucket='test-bucket')
+    s3.put_object(
+        Bucket='test-bucket',
+        Key='prompts/active_system_prompt.txt',
+        Body="This is a custom system prompt text."
+    )
+    
+    p2 = aiScorer.get_system_prompt()
+    assert p2 == "This is a custom system prompt text."
