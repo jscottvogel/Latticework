@@ -56,6 +56,13 @@ const dataBucket = new s3.Bucket(stack, 'BuffettScreenerData', {
     blockPublicPolicy: false,
     restrictPublicBuckets: false,
   }),
+  cors: [
+    {
+      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+      allowedOrigins: ['*'],
+      allowedHeaders: ['*'],
+    },
+  ],
   removalPolicy: RemovalPolicy.RETAIN,
 });
 
@@ -278,7 +285,8 @@ const orchestratorUrl = orchestratorLambda.addFunctionUrl({
   authType: lambda.FunctionUrlAuthType.NONE,
   cors: {
     allowedOrigins: ['*'],
-    allowedMethods: [lambda.HttpMethod.POST],
+    allowedMethods: [lambda.HttpMethod.ALL],
+    allowedHeaders: ['*'],
   },
 });
 

@@ -226,11 +226,21 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
     completed_runs = runs_response.get('Items', [])
     completed_runs.sort(key=lambda x: x.get('createdAt', x.get('runDate', '')), reverse=True)
     
-    # Get recent runs within the last 28 calendar days
+    # Get last 30 runs chronologically: current run plus the last 29 completed runs
+    recent_run_ids = [run_id]
+    for r in completed_runs:
+        rid = r.get('runId')
+        if rid == run_id:
+            continue
+        recent_run_ids.append(rid)
+        if len(recent_run_ids) == 30:
+            break
+            
+    # Get runs within the last 28 calendar days (4 weeks) for the appearancesLast4Weeks metric
     today = datetime.now(timezone.utc).date()
     cutoff_date = today - timedelta(days=28)
     
-    recent_run_ids = [run_id]
+    runs_in_last_28_days = [run_id]
     for r in completed_runs:
         rid = r.get('runId')
         if rid == run_id:
@@ -241,7 +251,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
         try:
             rdate = datetime.strptime(rdate_str, "%Y-%m-%d").date()
             if rdate >= cutoff_date:
-                recent_run_ids.append(rid)
+                runs_in_last_28_days.append(rid)
         except ValueError:
             continue
             
@@ -264,7 +274,9 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
             'compositeScore': float(s.get('compositeScore', 0))
         }
         
-    for rid in recent_run_ids:
+    # We query the scores table for all runs in the union of recent_run_ids and runs_in_last_28_days
+    all_query_run_ids = set(recent_run_ids) | set(runs_in_last_28_days)
+    for rid in all_query_run_ids:
         if rid == run_id:
             continue
         try:
@@ -305,7 +317,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
         except Exception as e:
             print(f"Warning: Failed to fetch scores for run {rid}: {e}")
             
-    # Calculate top 10 for each run
+    # Calculate top 10 for each run in all_query_run_ids
     top_10_by_run = {}
     for rid, ticker_map in scores_by_run_and_ticker.items():
         sorted_tickers = sorted(ticker_map.keys(), key=lambda t: float(ticker_map[t].get('compositeScore', 0)), reverse=True)
@@ -321,7 +333,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
     s3_client = boto3.client('s3')
     bucket = os.environ.get('S3_BUCKET')
     
-    for rid in recent_run_ids:
+    for rid in all_query_run_ids:
         if rid == run_id:
             continue
         try:
@@ -345,7 +357,8 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
     with table.batch_writer() as batch:
         for ticker in all_tickers:
             history = []
-            appearances = 0
+            appearances_last_30 = 0
+            appearances_last_4_weeks = 0
             investigate_count = 0
             scores_for_avg = []
             
@@ -357,7 +370,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
                     verdict = s.get('verdict')
                     
                     if ticker in top_10_by_run.get(rid, set()):
-                        appearances += 1
+                        appearances_last_30 += 1
                         
                     if verdict == 'INVESTIGATE':
                         investigate_count += 1
@@ -374,14 +387,18 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
             
             # Recalculate
             avg_score = sum(scores_for_avg) / len(scores_for_avg) if scores_for_avg else 0.0
-            is_investable = appearances >= 25
+            is_investable = appearances_last_30 >= 25
             
-            # Calculate screenedInWindow and appearanceRate
+            # Calculate appearancesLast4Weeks and appearanceRate based on the last 28 days window
+            for rid in runs_in_last_28_days:
+                if ticker in top_10_by_run.get(rid, set()):
+                    appearances_last_4_weeks += 1
+                    
             screened_in_window = 0
-            for rid in recent_run_ids:
+            for rid in runs_in_last_28_days:
                 if ticker in screened_by_run.get(rid, set()):
                     screened_in_window += 1
-            appearance_rate = float(appearances) / screened_in_window if screened_in_window > 0 else 0.0
+            appearance_rate = float(appearances_last_4_weeks) / screened_in_window if screened_in_window > 0 else 0.0
             
             meta = ticker_metadata.get(ticker, {})
             existing = all_rolling.get(ticker, {})
@@ -397,7 +414,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
                 'companyName': company_name,
                 'sector': sector,
                 'scoreHistory': history,
-                'appearancesLast4Weeks': appearances,
+                'appearancesLast4Weeks': appearances_last_4_weeks,
                 'appearanceRate': decimal.Decimal(str(round(appearance_rate, 4))),
                 'avgCompositeScore': decimal.Decimal(str(avg_score)),
                 'investigateCount': investigate_count,
