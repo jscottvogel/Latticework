@@ -215,10 +215,18 @@ function App() {
     setIsGeneratingMemo( true );
     try {
       // 1. Attempt to fetch memo directly if already generated
-      const cachedRes = await fetch( s3Url );
-      if ( cachedRes.ok ) {
-        const text = await cachedRes.text();
-        setActiveMemo( { ticker, companyName, content: text } );
+      let cachedText = null;
+      try {
+        const cachedRes = await fetch( s3Url );
+        if ( cachedRes.ok ) {
+          cachedText = await cachedRes.text();
+        }
+      } catch ( cacheErr ) {
+        console.warn( "Cache check failed (likely memo not generated yet):", cacheErr );
+      }
+      
+      if ( cachedText ) {
+        setActiveMemo( { ticker, companyName, content: cachedText } );
         return;
       }
       
