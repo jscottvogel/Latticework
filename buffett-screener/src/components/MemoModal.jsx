@@ -43,7 +43,7 @@ function parseMarkdown(md) {
     if (trimmed.startsWith('<h1') || trimmed.startsWith('<h2') || trimmed.startsWith('<h3') || trimmed.startsWith('<ul') || trimmed.startsWith('<li')) {
       return trimmed;
     }
-    return `<p style="line-height: 1.6; color: #2D3748; margin-bottom: 1rem; text-align: justify;">${trimmed}</p>`;
+    return `<p style="line-height: 1.6; color: #2D3748; margin-bottom: 1rem; text-align: left;">${trimmed}</p>`;
   });
   
   return formattedBlocks.join('\n');
@@ -178,7 +178,7 @@ export default function MemoModal({ ticker, companyName, content, onClose }) {
         }}>
           <div 
             dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
-            style={{ fontFamily: 'Georgia, serif', fontSize: '1.05rem', color: '#1A202C' }}
+            style={{ fontFamily: 'Georgia, serif', fontSize: '1.05rem', color: '#1A202C', textAlign: 'left' }}
           />
         </div>
         
