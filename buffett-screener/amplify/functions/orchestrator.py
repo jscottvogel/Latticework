@@ -729,7 +729,7 @@ def handler(event, context):
             total_tickers = len(queue_state)
             if total_tickers > 0:
                 now = datetime.now(timezone.utc)
-                cutoff = now - timedelta(days=14)
+                cutoff = now - timedelta(days=20)
                 
                 for t, state in queue_state.items():
                     lf_str = state.get('lastFetched')

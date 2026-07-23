@@ -12,7 +12,7 @@ export default function Header({ lastUpdated, runCost, universeCoverage, screene
           <span className="stat">Last Updated: {lastUpdated || 'Loading...'}</span>
           <span className="stat">Run Cost: ${runCost ? runCost.toFixed(2) : '0.00'}</span>
           {universeCoverage !== undefined && universeCoverage !== null && (
-            <span className="stat" title={`Screened in 14 days: ${screenedCumulative} stocks`}>
+            <span className="stat" title={`Screened in 20 days: ${screenedCumulative} stocks`}>
               Universe Coverage: {universeCoverage.toFixed(1)}%
             </span>
           )}
