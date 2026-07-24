@@ -66,7 +66,7 @@ function App() {
           const scoresResults = await Promise.all( scoresPromises );
 
           // Latest valid scores are in the first result (since last4Runs[0] is the newest)
-          validScores = ( scoresResults[ 0 ].data || [] ).filter( s => s !== null && s.ticker && s.createdAt );
+          validScores = ( scoresResults[ 0 ].data || [] ).filter( s => s !== null && s.ticker );
           validScores.sort( ( a, b ) => ( b.compositeScore || 0 ) - ( a.compositeScore || 0 ) );
 
           // Get the top 10 tickers (excluding AVOID/INSUFFICIENT_DATA/CANNOT EVALUATE) from the latest run to track their trends
@@ -127,7 +127,7 @@ function App() {
           filter: { runId: { eq: selectedRunId } },
           limit: 1000
         } );
-        const valid = ( scores || [] ).filter( s => s !== null && s.ticker && s.createdAt );
+        const valid = ( scores || [] ).filter( s => s !== null && s.ticker );
         valid.sort( ( a, b ) => ( b.compositeScore || 0 ) - ( a.compositeScore || 0 ) );
         setSelectedRunScores( valid );
       } catch ( err ) {
