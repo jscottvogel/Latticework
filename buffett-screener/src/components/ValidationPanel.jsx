@@ -104,50 +104,46 @@ export default function ValidationPanel() {
 
   const sortedRuns = Object.values(runsMap).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // Compute Growth Data using a non-overlapping rolling maturity model
+  // Compute Growth Data using an equal-allocation cohort reinvestment model.
+  // This simulates allocating a fixed portion of capital (10% of starting capital) 
+  // to each run's picks, tracking the cumulative dollar gains chronologically.
+  // This incorporates all runs and avoids sequential compounding overlaps.
   let portfolioValue = startingCapital;
   let benchmarkValue = startingCapital;
   const growthData = [];
-
-  let nextAvailableDate = null;
-  const horizonDays = parseInt(selectedHorizon);
+  const allocationPerRun = startingCapital * 0.10;
 
   sortedRuns.forEach(run => {
     const runDate = new Date(run.date);
+    let selectedPairs = [];
+    if (allocMethod === 'top10') {
+      selectedPairs = [...run.pairs].sort((a, b) => b.score - a.score).slice(0, 10);
+    } else if (allocMethod === 'top5') {
+      selectedPairs = [...run.pairs].sort((a, b) => b.score - a.score).slice(0, 5);
+    } else if (allocMethod === 'threshold75') {
+      selectedPairs = run.pairs.filter(p => p.score >= 7.5);
+    } else if (allocMethod === 'threshold70') {
+      selectedPairs = run.pairs.filter(p => p.score >= 7.0);
+    }
 
-    // Reinvest only when the previous investment has reached maturity to prevent overlapping compounding
-    if (nextAvailableDate === null || runDate >= nextAvailableDate) {
-      let selectedPairs = [];
-      if (allocMethod === 'top10') {
-        selectedPairs = [...run.pairs].sort((a, b) => b.score - a.score).slice(0, 10);
-      } else if (allocMethod === 'top5') {
-        selectedPairs = [...run.pairs].sort((a, b) => b.score - a.score).slice(0, 5);
-      } else if (allocMethod === 'threshold75') {
-        selectedPairs = run.pairs.filter(p => p.score >= 7.5);
-      } else if (allocMethod === 'threshold70') {
-        selectedPairs = run.pairs.filter(p => p.score >= 7.0);
-      }
+    if (selectedPairs.length > 0) {
+      const avgStockReturn = selectedPairs.reduce((sum, p) => sum + p.stockReturn, 0) / selectedPairs.length;
+      const avgSpReturn = selectedPairs.reduce((sum, p) => sum + p.spReturn, 0) / selectedPairs.length;
 
-      if (selectedPairs.length > 0) {
-        const avgStockReturn = selectedPairs.reduce((sum, p) => sum + p.stockReturn, 0) / selectedPairs.length;
-        const avgSpReturn = selectedPairs.reduce((sum, p) => sum + p.spReturn, 0) / selectedPairs.length;
+      // Dollar profit/loss from this run's allocation
+      const runGain = allocationPerRun * avgStockReturn;
+      const benchmarkGain = allocationPerRun * avgSpReturn;
 
-        portfolioValue = portfolioValue * (1 + avgStockReturn);
-        benchmarkValue = benchmarkValue * (1 + avgSpReturn);
+      portfolioValue += runGain;
+      benchmarkValue += benchmarkGain;
 
-        growthData.push({
-          date: runDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
-          'Value Screener Portfolio': parseFloat(portfolioValue.toFixed(2)),
-          'S&P 500 Index': parseFloat(benchmarkValue.toFixed(2)),
-          portfolioReturn: avgStockReturn,
-          benchmarkReturn: avgSpReturn
-        });
-
-        // Skip subsequent runs until this cohort matures
-        const matureDate = new Date(runDate);
-        matureDate.setDate(matureDate.getDate() + horizonDays);
-        nextAvailableDate = matureDate;
-      }
+      growthData.push({
+        date: runDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
+        'Value Screener Portfolio': parseFloat(portfolioValue.toFixed(2)),
+        'S&P 500 Index': parseFloat(benchmarkValue.toFixed(2)),
+        portfolioReturn: avgStockReturn,
+        benchmarkReturn: avgSpReturn
+      });
     }
   });
 
@@ -470,7 +466,7 @@ export default function ValidationPanel() {
                 <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', gridColumn: 'span 2' }}>
                   <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Simulated Growth of Capital ($10,000)</h3>
                   <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-                    Compounds the average realized return of the selected picks run-by-run vs. the S&P 500 index. Prices automatically adjust for dividends, representing full dividend reinvestment.
+                    Simulates investing a fixed allocation ($1,000 per run) into each cohort's picks and tracks the cumulative capital growth over time vs. the S&P 500 index.
                   </p>
 
                   <div style={{ height: '350px', width: '100%' }}>
