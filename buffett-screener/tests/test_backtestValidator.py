@@ -188,6 +188,14 @@ def test_handler(mock_urlopen, mock_get_key, setup_aws):
     assert summary['horizons']['30']['calibration']['investigateHighBeatCount'] == 1
     assert summary['horizons']['30']['calibration']['investigateHighBeatRate'] == 1.0
     
+    assert 'rawPairs' in summary['horizons']['30']
+    raw_pairs = summary['horizons']['30']['rawPairs']
+    assert len(raw_pairs) == 1
+    assert raw_pairs[0]['ticker'] == 'AAPL'
+    assert raw_pairs[0]['score'] == 8.45
+    assert raw_pairs[0]['stockReturn'] == 0.1
+    assert raw_pairs[0]['spReturn'] == 0.05
+    
     # Assert score tiering is present
     assert 'tiers' in summary['horizons']['30']
     tiers30 = summary['horizons']['30']['tiers']

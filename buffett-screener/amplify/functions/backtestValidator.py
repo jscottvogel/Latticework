@@ -394,6 +394,18 @@ def export_validation_summary(s3_client, s3_bucket, outcomes, stock_scores_map):
                 "beatRate": round(rate, 4)
             })
             
+        raw_pairs_data = []
+        for p in matched_pairs:
+            raw_pairs_data.append({
+                'runId': p['outcome']['runId'],
+                'ticker': p['outcome']['ticker'],
+                'score': float(p['score'].get('compositeScore', 0.0)),
+                'verdict': p['score'].get('verdict', 'N/A'),
+                'stockReturn': float(p['outcome'].get('stockReturnPct', 0.0)),
+                'spReturn': float(p['outcome'].get('spReturnPct', 0.0)),
+                'date': p['outcome'].get('scoreSnapshotDate', '')
+            })
+
         summary_data["horizons"][str(horizon)] = {
             "count": len(horizon_outcomes),
             "correlations": correlations,
@@ -402,7 +414,8 @@ def export_validation_summary(s3_client, s3_bucket, outcomes, stock_scores_map):
                 "investigateHighBeatCount": investigate_high_beat_count,
                 "investigateHighBeatRate": beat_rate
             },
-            "tiers": tier_data
+            "tiers": tier_data,
+            "rawPairs": raw_pairs_data
         }
         
         if horizon == 30:
