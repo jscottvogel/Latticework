@@ -16,7 +16,8 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
         setLoading(false);
         return;
       }
-      const url = `https://${bucketName}.s3.amazonaws.com/dashboard/theme_baskets.json`;
+      const domain = outputs?.custom?.distributionDomainName || `${bucketName}.s3.amazonaws.com`;
+      const url = `https://${domain}/dashboard/theme_baskets.json`;
       try {
         const response = await fetch(url);
         if (!response.ok) {

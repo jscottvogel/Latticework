@@ -210,7 +210,8 @@ function App() {
       return;
     }
     
-    const s3Url = `https://${bucketName}.s3.amazonaws.com/dashboard/memos/${runId}/${ticker}.md`;
+    const domain = outputs?.custom?.distributionDomainName || `${bucketName}.s3.amazonaws.com`;
+    const s3Url = `https://${domain}/dashboard/memos/${runId}/${ticker}.md`;
     
     setIsGeneratingMemo( true );
     try {

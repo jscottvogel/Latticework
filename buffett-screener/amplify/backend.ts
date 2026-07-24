@@ -6,6 +6,8 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Stack, RemovalPolicy, Duration } from 'aws-cdk-lib';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -50,12 +52,8 @@ const scoreOutcomesTable = new dynamodb.Table(stack, 'ScoreOutcome', {
 
 const dataBucket = new s3.Bucket(stack, 'BuffettScreenerData', {
   versioned: true,
-  blockPublicAccess: new s3.BlockPublicAccess({
-    blockPublicAcls: true,
-    ignorePublicAcls: true,
-    blockPublicPolicy: false,
-    restrictPublicBuckets: false,
-  }),
+  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+  objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
   cors: [
     {
       allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
@@ -66,11 +64,14 @@ const dataBucket = new s3.Bucket(stack, 'BuffettScreenerData', {
   removalPolicy: RemovalPolicy.RETAIN,
 });
 
-dataBucket.addToResourcePolicy(new iam.PolicyStatement({
-  actions: ['s3:GetObject'],
-  resources: [dataBucket.arnForObjects('dashboard/*')],
-  principals: [new iam.AnyPrincipal()],
-}));
+const distribution = new cloudfront.Distribution(stack, 'BuffettScreenerDistribution', {
+  defaultBehavior: {
+    origin: origins.S3BucketOrigin.withOriginAccessControl(dataBucket),
+    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+    allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+    cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+  },
+});
 
 // ---------------------------------------------------------
 // STEP 4: IAM ROLE FOR LAMBDA FUNCTIONS
@@ -303,5 +304,6 @@ backend.addOutput({
     orchestratorUrl: orchestratorUrl.url,
     dataBucketName: dataBucket.bucketName,
     awsRegion: stack.region,
+    distributionDomainName: distribution.distributionDomainName,
   },
 });

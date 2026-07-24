@@ -24,7 +24,8 @@ export default function ValidationPanel() {
         setLoading(false);
         return;
       }
-      const url = `https://${bucketName}.s3.amazonaws.com/dashboard/validation_summary.json?t=${Date.now()}`;
+      const domain = outputs?.custom?.distributionDomainName || `${bucketName}.s3.amazonaws.com`;
+      const url = `https://${domain}/dashboard/validation_summary.json?t=${Date.now()}`;
       try {
         const response = await fetch(url);
         if (!response.ok) {
