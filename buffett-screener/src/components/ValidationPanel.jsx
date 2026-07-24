@@ -6,7 +6,7 @@ export default function ValidationPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [validationData, setValidationData] = useState(null);
-  const [selectedHorizon, setSelectedHorizon] = useState('90');
+  const [selectedHorizon, setSelectedHorizon] = useState('30');
 
   useEffect(() => {
     async function fetchSummary() {
