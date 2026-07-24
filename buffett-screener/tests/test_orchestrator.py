@@ -533,8 +533,6 @@ def test_handler_generate_memo_http(mock_boto_client, setup_aws):
         response = orchestrator.handler(event, {})
         
     assert response['statusCode'] == 202
-    headers = response['headers']
-    assert headers['Access-Control-Allow-Origin'] == '*'
     
     body = json.loads(response['body'])
     assert body['status'] == 'GENERATING'

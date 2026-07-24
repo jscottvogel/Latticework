@@ -477,8 +477,7 @@ def handler(event, context):
             return {
                 "statusCode": 401,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*"
+                    "Content-Type": "application/json"
                 },
                 "body": json.dumps({"error": "unauthorized"})
             }
@@ -500,10 +499,7 @@ def handler(event, context):
             return {
                 "statusCode": 500,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Methods": "*"
+                    "Content-Type": "application/json"
                 },
                 "body": json.dumps({"status": "FAILED", "reason": "MEMO_GENERATOR_FUNCTION_NAME environment variable not set."})
             }
@@ -521,10 +517,7 @@ def handler(event, context):
             return {
                 "statusCode": 202,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Methods": "*"
+                    "Content-Type": "application/json"
                 },
                 "body": json.dumps({
                     "status": "GENERATING",
@@ -535,10 +528,7 @@ def handler(event, context):
             return {
                 "statusCode": 500,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Methods": "*"
+                    "Content-Type": "application/json"
                 },
                 "body": json.dumps({"status": "FAILED", "reason": str(e)})
             }
@@ -570,10 +560,7 @@ def handler(event, context):
             return {
                 "statusCode": 200,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Methods": "*"
+                    "Content-Type": "application/json"
                 },
                 "body": json.dumps({"status": "SUCCESS", "message": f"Prioritized {prioritize_ticker} for next scan."})
             }
@@ -581,8 +568,7 @@ def handler(event, context):
             return {
                 "statusCode": 500,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*"
+                    "Content-Type": "application/json"
                 },
                 "body": json.dumps({"status": "FAILED", "reason": str(e)})
             }
