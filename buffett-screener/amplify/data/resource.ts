@@ -50,6 +50,7 @@ const schema = a.schema({
       companyName: a.string(),
       sector: a.string(),
       appearancesLast4Weeks: a.integer(),
+      appearancesLast30: a.integer(),
       appearanceRate: a.float(),
       avgCompositeScore: a.float(),
       investigateCount: a.integer(),

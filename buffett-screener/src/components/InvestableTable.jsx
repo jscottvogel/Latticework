@@ -47,8 +47,8 @@ export default function InvestableTable({ rollingScores, onPrioritize, onGenerat
                 <td>#{index + 1}</td>
                 <td className="fw-bold">{score.ticker}</td>
                 <td>{score.companyName}</td>
-                <td className={getAppearanceColor(score.appearancesLast4Weeks)}>
-                  {score.appearancesLast4Weeks}/30
+                <td className={getAppearanceColor(score.appearancesLast30)}>
+                  {score.appearancesLast30 !== undefined && score.appearancesLast30 !== null ? score.appearancesLast30 : (score.isInvestable ? 30 : 0)}/30
                 </td>
                 <td>{score.avgCompositeScore?.toFixed(1)}</td>
                 <td>{score.investigateCount}</td>

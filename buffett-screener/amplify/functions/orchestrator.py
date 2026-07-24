@@ -415,6 +415,7 @@ def update_rolling_scores(run_id, current_scores, candidates=None, screened_tick
                 'sector': sector,
                 'scoreHistory': history,
                 'appearancesLast4Weeks': appearances_last_4_weeks,
+                'appearancesLast30': appearances_last_30,
                 'appearanceRate': decimal.Decimal(str(round(appearance_rate, 4))),
                 'avgCompositeScore': decimal.Decimal(str(avg_score)),
                 'investigateCount': investigate_count,

@@ -201,12 +201,14 @@ def test_update_rolling_scores_30_days(setup_aws):
     
     # AAPL: 30 appearances (since all are in 28 days window) -> isInvestable = True
     assert rolling_map['AAPL']['appearancesLast4Weeks'] == 30
+    assert rolling_map['AAPL']['appearancesLast30'] == 30
     assert rolling_map['AAPL']['appearanceRate'] == decimal.Decimal('1.0')
     assert rolling_map['AAPL']['isInvestable'] is True
     assert len(rolling_map['AAPL']['scoreHistory']) == 30
     
     # MSFT: 29 appearances -> isInvestable = True (threshold is 25)
     assert rolling_map['MSFT']['appearancesLast4Weeks'] == 29
+    assert rolling_map['MSFT']['appearancesLast30'] == 29
     assert rolling_map['MSFT']['appearanceRate'] == decimal.Decimal('1.0')
     assert rolling_map['MSFT']['isInvestable'] is True
     assert len(rolling_map['MSFT']['scoreHistory']) == 29
