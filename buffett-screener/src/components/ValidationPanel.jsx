@@ -70,11 +70,11 @@ export default function ValidationPanel() {
   const rawCorrelations = currentData.correlations || {};
   const chartData = [
     { name: 'Moat', correlation: rawCorrelations.moat || 0 },
-    { name: 'Financial Health', correlation: rawCorrelations.financialHealth || 0 },
+    { name: 'Fin Health', correlation: rawCorrelations.financialHealth || 0 },
     { name: 'Management', correlation: rawCorrelations.management || 0 },
     { name: 'Simplicity', correlation: rawCorrelations.simplicity || 0 },
-    { name: 'Margin of Safety', correlation: rawCorrelations.marginOfSafety || 0 },
-    { name: 'Composite Score', correlation: rawCorrelations.composite || 0 },
+    { name: 'Safety', correlation: rawCorrelations.marginOfSafety || 0 },
+    { name: 'Composite', correlation: rawCorrelations.composite || 0 },
   ];
 
   const calibration = currentData.calibration || {};
@@ -122,7 +122,7 @@ export default function ValidationPanel() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                <XAxis dataKey="name" interval={0} tick={{ fontSize: 10 }} />
                 <YAxis domain={[-1, 1]} tick={{ fontSize: 10 }} />
                 <Tooltip 
                   formatter={(value) => [value.toFixed(3), 'Pearson Correlation (r)']}
