@@ -58,7 +58,7 @@ function App() {
 
           const scoresPromises = last30Runs.map( run =>
             client.models.StockScore.list( {
-              filter: { runId: { eq: run.runId } },
+              runId: run.runId,
               limit: 1000
             } )
           );
@@ -124,7 +124,7 @@ function App() {
     async function fetchSelectedScores() {
       try {
         const { data: scores } = await client.models.StockScore.list( {
-          filter: { runId: { eq: selectedRunId } },
+          runId: selectedRunId,
           limit: 1000
         } );
         const valid = ( scores || [] ).filter( s => s !== null && s.ticker );
