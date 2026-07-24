@@ -68,8 +68,10 @@ const distribution = new cloudfront.Distribution(stack, 'BuffettScreenerDistribu
   defaultBehavior: {
     origin: origins.S3BucketOrigin.withOriginAccessControl(dataBucket),
     viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-    allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+    allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
     cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+    originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN,
+    responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS,
   },
 });
 
