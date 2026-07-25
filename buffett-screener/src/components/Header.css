@@ -75,3 +75,28 @@
     margin-top: 1rem;
   }
 }
+
+.signout-btn {
+  background-color: #d93025;
+  color: #ffffff;
+  border: none;
+  padding: 0.35rem 0.85rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.85rem;
+  margin-left: 10px;
+  outline: none;
+}
+
+.signout-btn:hover {
+  background-color: #b8251b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+}
+
+.signout-btn:active {
+  background-color: #9a1c14;
+  transform: translateY(0);
+}

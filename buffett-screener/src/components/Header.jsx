@@ -25,9 +25,8 @@ export default function Header({ lastUpdated, runCost, universeCoverage, screene
           </button> */}
           {onSignOut && (
             <button 
-              className="run-now-btn" 
-              onClick={onSignOut} 
-              style={{ backgroundColor: '#d93025', marginLeft: '10px' }}
+              className="signout-btn" 
+              onClick={onSignOut}
             >
               Sign Out
             </button>
