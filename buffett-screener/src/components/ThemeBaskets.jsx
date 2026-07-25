@@ -8,7 +8,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
   const [error, setError] = useState(null);
   const [basketsData, setBasketsData] = useState(null);
   const [selectedThemeId, setSelectedThemeId] = useState('');
-  const [startingCapital, setStartingCapital] = useState(10000);
+  const [startingCapitalInput, setStartingCapitalInput] = useState('10000');
   const [weightingStrategy, setWeightingStrategy] = useState('score'); // 'score' or 'equal'
   const [exportSuccess, setExportSuccess] = useState(false);
   const [validationData, setValidationData] = useState(null);
@@ -27,7 +27,10 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
       try {
         const [basketsResponse, valResponse] = await Promise.all([
           fetch(url),
-          fetch(valUrl)
+          fetch(valUrl).catch(e => {
+            console.warn("Validation summary fetch failed (gracefully caught):", e);
+            return { ok: false };
+          })
         ]);
         if (!basketsResponse.ok) {
           throw new Error(`Failed to fetch thematic baskets. Status: ${basketsResponse.status}`);
@@ -91,6 +94,9 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
   const activeBasket = baskets[selectedThemeId];
   const stocks = activeBasket?.stocks || [];
 
+  // Parse starting capital safely
+  const startingCapital = Math.min(100000000, Math.max(100, parseInt(startingCapitalInput) || 100));
+
   // Calculate Theme Backtest Performance from constituent raw validation outcomes
   const themeTickers = new Set(stocks.map(s => s.ticker));
   const rawPairs = validationData?.horizons?.['30']?.rawPairs || [];
@@ -99,11 +105,15 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
   let themeAvgReturn = 0;
   let themeSpAvgReturn = 0;
   let themeAlpha = 0;
+  let themeWinRate = 0;
 
   if (hasThemePerformance) {
     themeAvgReturn = (themePairs.reduce((sum, p) => sum + (p.stockReturn || 0), 0) / themePairs.length) * 100;
     themeSpAvgReturn = (themePairs.reduce((sum, p) => sum + (p.spReturn || 0), 0) / themePairs.length) * 100;
     themeAlpha = themeAvgReturn - themeSpAvgReturn;
+    
+    const beatConstituentsCount = themePairs.filter(p => (p.stockReturn || 0) > (p.spReturn || 0)).length;
+    themeWinRate = (beatConstituentsCount / themePairs.length) * 100;
   }
 
   // Calculate Direct Indexing allocations
@@ -229,8 +239,9 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
                       <span style={{ fontWeight: 'bold', color: '#666' }}>$</span>
                       <input
                         type="number"
-                        value={startingCapital}
-                        onChange={(e) => setStartingCapital(Math.min(100000000, Math.max(100, parseInt(e.target.value) || 0)))}
+                        value={startingCapitalInput}
+                        onChange={(e) => setStartingCapitalInput(e.target.value)}
+                        onBlur={() => setStartingCapitalInput(Math.min(100000000, Math.max(100, parseInt(startingCapitalInput) || 100)).toString())}
                         style={{
                           padding: '8px 12px',
                           border: '1px solid #ccc',
@@ -347,11 +358,21 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                       <span style={{ color: '#666' }}>Theme Avg Return (Constituents)</span>
-                      <span style={{ fontWeight: 'bold', color: '#1A6B3C' }}>+{themeAvgReturn.toFixed(2)}%</span>
+                      <span style={{ fontWeight: 'bold', color: themeAvgReturn >= 0 ? '#1A6B3C' : '#d93025' }}>
+                        {themeAvgReturn >= 0 ? '+' : ''}{themeAvgReturn.toFixed(2)}%
+                      </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                       <span style={{ color: '#666' }}>S&P 500 Index Avg Return</span>
-                      <span style={{ fontWeight: 'bold', color: '#555' }}>+{themeSpAvgReturn.toFixed(2)}%</span>
+                      <span style={{ fontWeight: 'bold', color: '#555' }}>
+                        {themeSpAvgReturn >= 0 ? '+' : ''}{themeSpAvgReturn.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <span style={{ color: '#666' }}>Constituent Win Rate (Beats S&P)</span>
+                      <span style={{ fontWeight: 'bold', color: themeWinRate >= 50 ? '#1A6B3C' : '#d93025' }}>
+                        {themeWinRate.toFixed(1)}%
+                      </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderTop: '1px dashed #ddd', paddingTop: '6px' }}>
                       <span style={{ color: '#333', fontWeight: 'bold' }}>Thematic Alpha (Outperformance)</span>
@@ -480,7 +501,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
           lineHeight: '1.5',
           textAlign: 'justify'
         }}>
-          <strong>Regulatory Disclosure:</strong> The thematic allocations presented above are for simulated educational and illustration purposes only and do not constitute an offer, solicitation, or recommendation to buy or sell any security. Direct indexing involves purchasing individual securities and carries risk, including potential loss of principal. Performance of custom baskets may deviate from standard benchmark ETFs due to transaction costs, weighting differences, cash drag, and execution timings. The simulator does not account for the tax consequences of trading or rebalancing. Exact replication of model weight distributions requires fractional share capabilities; fractional shares are not transferable, do not carry voting rights, and may have liquidity profiles distinct from whole shares. Past performance of any scoring methodology is no guarantee of future results.
+          <strong>Regulatory Disclosure:</strong> The thematic allocations and historical constituent statistics presented above are for simulated educational and illustration purposes only and do not constitute an offer, solicitation, or recommendation to buy or sell any security. Direct indexing involves purchasing individual securities and carries risk, including potential loss of principal. Performance of custom baskets may deviate from standard benchmark ETFs due to transaction costs, weighting differences, cash drag, and execution timings. The simulator does not account for the tax consequences of trading or rebalancing. Exact replication of model weight distributions requires fractional share capabilities; fractional shares are not transferable, do not carry voting rights, and may have liquidity profiles distinct from whole shares. Historical constituent returns represent Total Shareholder Return (adjusted close price inclusive of reinvested distributions), but actual execution outcomes may vary. Past performance of any scoring methodology is no guarantee of future results.
         </div>
       )}
     </div>
