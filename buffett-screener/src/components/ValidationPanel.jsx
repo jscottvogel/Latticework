@@ -112,10 +112,10 @@ export default function ValidationPanel() {
   // This simulates allocating a fixed portion of capital (10% of starting capital) 
   // to each run's picks, tracking the cumulative dollar gains chronologically.
   // This incorporates all runs and avoids sequential compounding overlaps.
-  let portfolioValue = startingCapital;
-  let benchmarkValue = startingCapital;
+  let cumulativeReturnSum = 0;
+  let cumulativeSpReturnSum = 0;
+  let runCount = 0;
   const growthData = [];
-  const allocationPerRun = startingCapital * 0.10;
 
   sortedRuns.forEach(run => {
     const runDate = new Date(run.date);
@@ -134,17 +134,17 @@ export default function ValidationPanel() {
       const avgStockReturn = selectedPairs.reduce((sum, p) => sum + p.stockReturn, 0) / selectedPairs.length;
       const avgSpReturn = selectedPairs.reduce((sum, p) => sum + p.spReturn, 0) / selectedPairs.length;
 
-      // Dollar profit/loss from this run's allocation
-      const runGain = allocationPerRun * avgStockReturn;
-      const benchmarkGain = allocationPerRun * avgSpReturn;
+      cumulativeReturnSum += avgStockReturn;
+      cumulativeSpReturnSum += avgSpReturn;
+      runCount++;
 
-      portfolioValue += runGain;
-      benchmarkValue += benchmarkGain;
+      const runningPortfolioValue = startingCapital * (1 + (cumulativeReturnSum / runCount));
+      const runningBenchmarkValue = startingCapital * (1 + (cumulativeSpReturnSum / runCount));
 
       growthData.push({
         date: runDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
-        'Value Screener Portfolio': parseFloat(portfolioValue.toFixed(2)),
-        'S&P 500 Index': parseFloat(benchmarkValue.toFixed(2)),
+        'Value Screener Portfolio': parseFloat(runningPortfolioValue.toFixed(2)),
+        'S&P 500 Index': parseFloat(runningBenchmarkValue.toFixed(2)),
         portfolioReturn: avgStockReturn,
         benchmarkReturn: avgSpReturn
       });
@@ -153,10 +153,10 @@ export default function ValidationPanel() {
 
   // Calculate backtest performance statistics
   const totalRuns = growthData.length;
-  const portfolioFinalValue = portfolioValue;
-  const benchmarkFinalValue = benchmarkValue;
-  const portfolioTotalReturn = totalRuns > 0 ? ((portfolioValue - startingCapital) / startingCapital) * 100 : 0;
-  const benchmarkTotalReturn = totalRuns > 0 ? ((benchmarkValue - startingCapital) / startingCapital) * 100 : 0;
+  const portfolioTotalReturn = runCount > 0 ? (cumulativeReturnSum / runCount) * 100 : 0;
+  const benchmarkTotalReturn = runCount > 0 ? (cumulativeSpReturnSum / runCount) * 100 : 0;
+  const portfolioFinalValue = startingCapital * (1 + portfolioTotalReturn / 100);
+  const benchmarkFinalValue = startingCapital * (1 + benchmarkTotalReturn / 100);
   const netAlpha = portfolioTotalReturn - benchmarkTotalReturn;
 
   const beatRunsCount = growthData.filter(d => d.portfolioReturn > d.benchmarkReturn).length;

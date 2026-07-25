@@ -80,10 +80,13 @@ export default function PortfolioSimulatorTab({
             
             {/* Simulated Equity Curve Line Chart */}
             <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', gridColumn: 'span 2' }}>
-              <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Simulated Growth of Capital ($10,000)</h3>
-              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-                Simulates investing a fixed allocation ($1,000 per run) into each cohort's picks and tracks the cumulative capital growth over time vs. the S&P 500 index.
+              <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Simulated Growth of Capital (${startingCapital ? '$' + startingCapital.toLocaleString() : '$10,000'})</h3>
+              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+                Simulates investing a fixed allocation (${startingCapital ? '$' + (startingCapital * 0.1).toLocaleString() : '$1,000'} per run) into each cohort's picks and tracks the cumulative capital growth over time vs. the S&P 500 index.
               </p>
+              <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '-0.5rem', marginBottom: '1.5rem', fontStyle: 'italic' }}>
+                Note: Stock returns and benchmark returns are calculated using dividend-adjusted and split-adjusted close prices, representing total shareholder return (reinvested distributions).
+              </div>
 
               <div style={{ height: '350px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
