@@ -36,42 +36,66 @@ def handler(event, context):
         response = registry_table.scan()
         themes = response.get('Items', [])
         
-        if not themes:
-            print("Theme Registry is empty. Seeding default themes...")
-            default_themes = [
-                {
-                    'themeId': 'saas-cloud',
-                    'name': 'SaaS & Cloud Infrastructure',
-                    'description': 'Companies building subscription software, cloud platforms, and digital enterprise infrastructure.',
-                    'keywords': ['saas', 'cloud', 'software', 'subscription', 'enterprise software', 'infrastructure']
-                },
-                {
-                    'themeId': 'ai-semiconductors',
-                    'name': 'Artificial Intelligence & Semiconductors',
-                    'description': 'Hardware, chip designs, GPUs, and software systems powering artificial intelligence and next-generation compute.',
-                    'keywords': ['ai', 'artificial intelligence', 'semiconductor', 'chip', 'gpu', 'nvidia', 'processor']
-                },
-                {
-                    'themeId': 'healthcare-biotech',
-                    'name': 'Healthcare & Biotechnology',
-                    'description': 'Medical device innovations, biotechnology research, therapeutics, and healthcare providers.',
-                    'keywords': ['healthcare', 'medical', 'biotech', 'biotechnology', 'pharma', 'therapeutics', 'clinical']
-                },
-                {
-                    'themeId': 'clean-energy',
-                    'name': 'Clean Energy & EV Technology',
-                    'description': 'Renewable energy generation, electric vehicles, battery hardware, solar power, and carbon reductions.',
-                    'keywords': ['electric vehicle', 'ev', 'solar', 'wind', 'clean energy', 'battery', 'renewable']
-                }
-            ]
-            with registry_table.batch_writer() as batch:
-                for theme in default_themes:
-                    theme['__typename'] = 'ThemeRegistry'
-                    theme['createdAt'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-                    theme['updatedAt'] = theme['createdAt']
-                    batch.put_item(Item=theme)
-                    themes.append(theme)
-            print(f"Successfully seeded {len(default_themes)} default themes.")
+        default_themes = [
+            {
+                'themeId': 'saas-cloud',
+                'name': 'SaaS & Cloud Infrastructure',
+                'description': 'Companies building subscription software, cloud platforms, and digital enterprise infrastructure.',
+                'keywords': ['saas', 'cloud', 'software', 'subscription', 'enterprise software', 'infrastructure']
+            },
+            {
+                'themeId': 'ai-semiconductors',
+                'name': 'Artificial Intelligence & Semiconductors',
+                'description': 'Hardware, chip designs, GPUs, and software systems powering artificial intelligence and next-generation compute.',
+                'keywords': ['ai', 'artificial intelligence', 'semiconductor', 'chip', 'gpu', 'nvidia', 'processor']
+            },
+            {
+                'themeId': 'healthcare-biotech',
+                'name': 'Healthcare & Biotechnology',
+                'description': 'Medical device innovations, biotechnology research, therapeutics, and healthcare providers.',
+                'keywords': ['healthcare', 'medical', 'biotech', 'biotechnology', 'pharma', 'therapeutics', 'clinical']
+            },
+            {
+                'themeId': 'clean-energy',
+                'name': 'Clean Energy & EV Technology',
+                'description': 'Renewable energy generation, electric vehicles, battery hardware, solar power, and carbon reductions.',
+                'keywords': ['electric vehicle', 'ev', 'solar', 'wind', 'clean energy', 'battery', 'renewable']
+            },
+            {
+                'themeId': 'consumer-moats',
+                'name': 'Consumer Moats & Brand Franchises',
+                'description': 'Classic Buffett-style franchises with strong brand equity, customer loyalty, and high pricing power.',
+                'keywords': ['consumer', 'brand', 'franchise', 'retail', 'coca-cola', 'beverage', 'food', 'pricing power', 'apple', 'apparel']
+            },
+            {
+                'themeId': 'financials-insurance',
+                'name': 'Financials & Insurance Networks',
+                'description': 'Steady underwriting businesses, banking institutions, and card networks generating low-cost capital float.',
+                'keywords': ['financial', 'insurance', 'bank', 'credit', 'banking', 'underwriting', 'reinsurance', 'payments', 'brokerage']
+            },
+            {
+                'themeId': 'industrial-infra',
+                'name': 'Industrial Infrastructure & Logistics',
+                'description': 'Asset-heavy networks with high capital barriers to entry, including railways, utilities, and energy distribution.',
+                'keywords': ['industrial', 'energy', 'railroad', 'utility', 'transportation', 'logistics', 'machinery', 'infrastructure', 'pipeline']
+            }
+        ]
+        
+        # Check for missing default themes and seed them
+        themes_map = {t['themeId']: t for t in themes}
+        seeded_new = False
+        with registry_table.batch_writer() as batch:
+            for dt in default_themes:
+                if dt['themeId'] not in themes_map:
+                    print(f"Seeding missing theme: {dt['themeId']}")
+                    dt['__typename'] = 'ThemeRegistry'
+                    dt['createdAt'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+                    dt['updatedAt'] = dt['createdAt']
+                    batch.put_item(Item=dt)
+                    themes.append(dt)
+                    seeded_new = True
+        if seeded_new:
+            print("Successfully seeded missing default themes.")
     except Exception as e:
         print(f"Error checking/seeding Theme Registry: {e}")
         return {'status': 'FAILED', 'reason': f"REGISTRY_READ_ERROR: {str(e)}"}

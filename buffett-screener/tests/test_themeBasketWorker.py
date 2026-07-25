@@ -101,14 +101,14 @@ def test_theme_basket_worker(setup_aws):
     response = themeBasketWorker.handler({}, {})
     
     assert response['status'] == 'SUCCESS'
-    assert response['themesMatched'] == 4 # 4 default themes seeded
-    assert response['totalMatches'] == 2 # NVDA matches AI, MSFT matches SaaS
+    assert response['themesMatched'] == 7 # 7 default themes seeded
+    assert response['totalMatches'] == 3 # NVDA matches AI, MSFT matches SaaS, KO matches Consumer Moats
     
     # Check ThemeBasket table entries
     basket_table = dynamodb.Table('TestThemeBasket')
     matches = basket_table.scan()['Items']
     
-    assert len(matches) == 2
+    assert len(matches) == 3
     
     nvda_match = next(m for m in matches if m['ticker'] == 'NVDA')
     assert nvda_match['themeId'] == 'ai-semiconductors'
@@ -119,6 +119,11 @@ def test_theme_basket_worker(setup_aws):
     assert msft_match['themeId'] == 'saas-cloud'
     assert 'saas' in msft_match['matchedKeywords']
     assert msft_match['isInvestable'] is True
+
+    ko_match = next(m for m in matches if m['ticker'] == 'KO')
+    assert ko_match['themeId'] == 'consumer-moats'
+    assert 'coca-cola' in ko_match['matchedKeywords']
+    assert ko_match['isInvestable'] is True
     
     # Check S3 export file
     summary_obj = s3.get_object(Bucket='test-bucket', Key='dashboard/theme_baskets.json')
@@ -130,6 +135,7 @@ def test_theme_basket_worker(setup_aws):
     baskets = summary['baskets']
     assert 'saas-cloud' in baskets
     assert 'ai-semiconductors' in baskets
+    assert 'consumer-moats' in baskets
     
     saas_stocks = baskets['saas-cloud']['stocks']
     assert len(saas_stocks) == 1
@@ -138,6 +144,10 @@ def test_theme_basket_worker(setup_aws):
     ai_stocks = baskets['ai-semiconductors']['stocks']
     assert len(ai_stocks) == 1
     assert ai_stocks[0]['ticker'] == 'NVDA'
+
+    consumer_stocks = baskets['consumer-moats']['stocks']
+    assert len(consumer_stocks) == 1
+    assert consumer_stocks[0]['ticker'] == 'KO'
 
 def test_custom_regex_theme_matching(setup_aws):
     dynamodb, s3 = setup_aws
@@ -187,7 +197,8 @@ def test_custom_regex_theme_matching(setup_aws):
     basket_table = dynamodb.Table('TestThemeBasket')
     matches = basket_table.scan()['Items']
     
-    assert len(matches) == 1
-    assert matches[0]['ticker'] == 'T'
-    assert matches[0]['themeId'] == 'telecom-theme'
-    assert 'r/\\b(telecom|telephony)\\b/' in matches[0]['matchedKeywords']
+    telecom_matches = [m for m in matches if m['themeId'] == 'telecom-theme']
+    assert len(telecom_matches) == 1
+    assert telecom_matches[0]['ticker'] == 'T'
+    assert telecom_matches[0]['themeId'] == 'telecom-theme'
+    assert 'r/\\b(telecom|telephony)\\b/' in telecom_matches[0]['matchedKeywords']
