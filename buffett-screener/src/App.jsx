@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Authenticator } from '@aws-amplify/ui-react';
+import '@aws-amplify/ui-react/styles.css';
 import Header from './components/Header';
 import InvestableTable from './components/InvestableTable';
 import WeeklyLeaderboard from './components/WeeklyLeaderboard';
@@ -15,7 +17,7 @@ import outputs from '../amplify_outputs.json';
 
 const client = generateClient();
 
-function App() {
+function App({ signOut, user }) {
   const [ activeTab, setActiveTab ] = useState( 'investable' );
   const [ loading, setLoading ] = useState( true );
   const [ isTriggering, setIsTriggering ] = useState( false );
@@ -302,6 +304,7 @@ function App() {
         screenedCumulative={ latestRun?.stocksScreenedCumulative }
         onRunNow={ handleRunNow }
         isTriggering={ isTriggering }
+        onSignOut={ signOut }
       />
 
       <main className="main-content">
@@ -446,4 +449,10 @@ function App() {
   );
 }
 
-export default App;
+export default function AppWithAuth() {
+  return (
+    <Authenticator>
+      {({ signOut, user }) => <App signOut={signOut} user={user} />}
+    </Authenticator>
+  );
+}

@@ -14,7 +14,7 @@ const schema = a.schema({
       universeCoveragePct: a.float(),
     })
     .identifier(['runId'])
-    .authorization(allow => [allow.publicApiKey()]),
+    .authorization(allow => [allow.authenticated()]),
 
   StockScore: a
     .model({
@@ -42,7 +42,7 @@ const schema = a.schema({
       mcConfidenceBand: a.string(),
     })
     .identifier(['runId', 'ticker'])
-    .authorization(allow => [allow.publicApiKey()]),
+    .authorization(allow => [allow.authenticated()]),
 
   RollingScore: a
     .model({
@@ -61,7 +61,7 @@ const schema = a.schema({
       updatedAt: a.string(),
     })
     .identifier(['ticker'])
-    .authorization(allow => [allow.publicApiKey()]),
+    .authorization(allow => [allow.authenticated()]),
   ThemeRegistry: a
     .model({
       themeId: a.id().required(),
@@ -70,7 +70,7 @@ const schema = a.schema({
       keywords: a.string().array(),
     })
     .identifier(['themeId'])
-    .authorization(allow => [allow.publicApiKey()]),
+    .authorization(allow => [allow.authenticated()]),
 
   ThemeBasket: a
     .model({
@@ -84,7 +84,7 @@ const schema = a.schema({
       matchedKeywords: a.string().array(),
     })
     .identifier(['themeId', 'ticker'])
-    .authorization(allow => [allow.publicApiKey()]),
+    .authorization(allow => [allow.authenticated()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -92,7 +92,7 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: 'apiKey',
+    defaultAuthorizationMode: 'userPool',
     apiKeyAuthorizationMode: { expiresInDays: 365 },
   },
 });

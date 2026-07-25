@@ -1,9 +1,8 @@
-import { useState, useEffect, Fragment } from 'react';
-import { 
-  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, ReferenceLine, LineChart, Line, Legend 
-} from 'recharts';
+import { useState, useEffect } from 'react';
 import outputs from '../../amplify_outputs.json';
+import PredictiveAccuracyTab from './PredictiveAccuracyTab';
+import PortfolioSimulatorTab from './PortfolioSimulatorTab';
+import VintageLeaderboardTab from './VintageLeaderboardTab';
 
 export default function ValidationPanel() {
   const [loading, setLoading] = useState(true);
@@ -292,397 +291,42 @@ export default function ValidationPanel() {
 
       {/* SUB-TAB 1: PREDICTIVE ACCURACY */}
       {subTab === 'predictive' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
-            
-            {/* Pearson Correlation Chart */}
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-              <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Excess Return Correlation</h3>
-              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-                Pearson correlation coefficient (\(r\)) between each score component and the stock's excess return vs. S&P 500. A positive value indicates the score successfully predicted outperformance.
-              </p>
-              
-              <div style={{ height: '300px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" interval={0} tick={{ fontSize: 10 }} />
-                    <YAxis domain={[-1, 1]} tick={{ fontSize: 10 }} />
-                    <Tooltip 
-                      formatter={(value) => [value.toFixed(3), 'Pearson Correlation (r)']}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #ccc' }}
-                    />
-                    <ReferenceLine y={0} stroke="#666" />
-                    <Bar dataKey="correlation" fill="#2E8B57" radius={[4, 4, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.correlation >= 0 ? '#1A6B3C' : '#d93025'} 
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Verdict Calibration Stats Card */}
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Verdict Calibration</h3>
-              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-                Tracks how many stocks marked <strong>INVESTIGATE</strong> with <strong>HIGH</strong> confidence actually beat the S&P 500 over the {selectedHorizon}-day window.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flexGrow: 1, justifyContent: 'center' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontSize: '0.9rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Outperformance Rate</span>
-                  <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: calibration.investigateHighBeatRate >= 0.5 ? '#1A6B3C' : '#f29900', margin: '0.5rem 0' }}>
-                    {(calibration.investigateHighBeatRate * 100).toFixed(1)}%
-                  </div>
-                  <div style={{ fontSize: '0.85rem', color: '#555' }}>
-                    Beat S&P 500 in <strong>{calibration.investigateHighBeatCount}</strong> of <strong>{calibration.investigateHighCount}</strong> matured high-confidence recommendations.
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #eee', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#666' }}>Total Matured Outcomes</span>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#333', marginTop: '4px' }}>
-                      {currentData.count}
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#666' }}>Active recommendations</span>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#333', marginTop: '4px' }}>
-                      {calibration.investigateHighCount}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Beat Rate by Score Tier Chart */}
-          <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Beat Rate by Score Tier</h3>
-            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-              Measures the percentage of matured outcomes that outperformed the S&P 500 benchmark grouped by the composite score tier. A higher score tier should ideally correspond to a higher beat rate.
-            </p>
-            
-            <div style={{ height: '260px', width: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={(currentData.tiers || []).map(t => ({
-                    name: t.name,
-                    displayRate: (t.beatRate * 100),
-                    count: t.count,
-                    beatCount: t.beatCount
-                  }))} 
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} />
-                  <Tooltip 
-                    formatter={(value, name, props) => [`${value.toFixed(1)}% (Beat ${props.payload.beatCount} of ${props.payload.count} runs)`, 'Beat Rate']}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #ccc' }}
-                  />
-                  <Bar dataKey="displayRate" fill="#1A6B3C" radius={[4, 4, 0, 0]} barSize={50}>
-                    {(currentData.tiers || []).map((entry, index) => {
-                      const rate = entry.beatRate * 100;
-                      return (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={rate >= 50 ? '#1A6B3C' : '#f29900'} 
-                        />
-                      );
-                    })}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
+        <PredictiveAccuracyTab 
+          chartData={chartData} 
+          calibration={calibration} 
+          selectedHorizon={selectedHorizon} 
+          currentData={currentData} 
+        />
       )}
 
       {/* SUB-TAB 2: PORTFOLIO BACKTEST SANDBOX */}
       {subTab === 'sandbox' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {rawPairs.length === 0 ? (
-            <div style={{ padding: '3rem', textAlign: 'center', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', color: '#666' }}>
-              <h3>No portfolio backtest outcomes available for this horizon.</h3>
-              <p>Try switching to the 30-Day horizon above.</p>
-            </div>
-          ) : (
-            <>
-              {/* Backtest Configuration Panel */}
-              <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 0.8rem 0', color: '#333' }}>Starting Capital</h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#666' }}>$</span>
-                    <input 
-                      type="number" 
-                      value={startingCapital} 
-                      onChange={(e) => setStartingCapital(Math.max(100, parseInt(e.target.value) || 0))}
-                      style={{ padding: '8px 12px', width: '120px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.95rem' }} 
-                    />
-                  </div>
-                  <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '6px' }}>Simulated initial investment amount.</span>
-                </div>
-
-                <div>
-                  <h4 style={{ margin: '0 0 0.8rem 0', color: '#333' }}>Allocation Strategy</h4>
-                  <select 
-                    value={allocMethod} 
-                    onChange={(e) => setAllocMethod(e.target.value)}
-                    style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', width: '100%', fontSize: '0.95rem', cursor: 'pointer' }}
-                  >
-                    <option value="top10">Equal-Weighted Top 10 Picks</option>
-                    <option value="top5">Equal-Weighted Top 5 Picks</option>
-                    <option value="threshold75">Screener Tier (Score &gt;= 7.5)</option>
-                    <option value="threshold70">Screener Tier (Score &gt;= 7.0)</option>
-                  </select>
-                  <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '6px' }}>How stocks are chosen for each run's portfolio.</span>
-                </div>
-
-                <div>
-                  <h4 style={{ margin: '0 0 0.8rem 0', color: '#333' }}>Outperformance metrics</h4>
-                  <div style={{ display: 'flex', gap: '15px' }}>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: '#888' }}>Total Portfolio Value</span>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1A6B3C' }}>
-                        ${portfolioFinalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: '#888' }}>S&P 500 Value</span>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#555' }}>
-                        ${benchmarkFinalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Grid of Results */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
-                
-                {/* Simulated Equity Curve Line Chart */}
-                <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', gridColumn: 'span 2' }}>
-                  <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Simulated Growth of Capital ($10,000)</h3>
-                  <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-                    Simulates investing a fixed allocation ($1,000 per run) into each cohort's picks and tracks the cumulative capital growth over time vs. the S&P 500 index.
-                  </p>
-
-                  <div style={{ height: '350px', width: '100%' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={growthData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="date" tick={{ fontSize: 9 }} />
-                        <YAxis tickFormatter={(v) => `$${v.toLocaleString()}`} tick={{ fontSize: 9 }} />
-                        <Tooltip 
-                          formatter={(value) => [`$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]}
-                          contentStyle={{ borderRadius: '8px', border: '1px solid #ccc' }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '0.9rem', paddingTop: '10px' }} />
-                        <Line type="monotone" dataKey="Value Screener Portfolio" stroke="#1A6B3C" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="S&P 500 Index" stroke="#94a3b8" strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Performance Summary Cards and Beat Rates */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  
-                  {/* Performance Statistics Card */}
-                  <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <h4 style={{ margin: '0 0 1rem 0', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Cumulative Statistics</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>Total Runs Backtested</span>
-                        <span style={{ fontWeight: 'bold' }}>{totalRuns} runs</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>Portfolio Return</span>
-                        <span style={{ fontWeight: 'bold', color: '#1A6B3C' }}>+{portfolioTotalReturn.toFixed(1)}%</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>S&P 500 Return</span>
-                        <span style={{ fontWeight: 'bold', color: '#555' }}>+{benchmarkTotalReturn.toFixed(1)}%</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #ddd', paddingTop: '8px' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#666', fontWeight: 'bold' }}>Net Outperformance (Alpha)</span>
-                        <span style={{ fontWeight: 'bold', color: netAlpha >= 0 ? '#1A6B3C' : '#d93025' }}>
-                          {netAlpha >= 0 ? '+' : ''}{netAlpha.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>Win Rate (Beats S&P)</span>
-                        <span style={{ fontWeight: 'bold', color: '#1A6B3C' }}>{portfolioBeatRate.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Investigate vs Avoid Spread Chart */}
-                  <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', flexGrow: 1 }}>
-                    <h4 style={{ margin: '0 0 1rem 0', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Investigate vs. Avoid Return Spread</h4>
-                    <div style={{ height: '160px', width: '100%' }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={spreadData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                          <XAxis type="number" tickFormatter={(v) => `${v}%`} tick={{ fontSize: 9 }} />
-                          <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 9 }} />
-                          <Tooltip 
-                            formatter={(value, name, props) => [`${value}% (across ${props.payload.count} outcomes)`, 'Avg Return']}
-                            contentStyle={{ borderRadius: '8px', border: '1px solid #ccc' }}
-                          />
-                          <Bar dataKey="return" radius={[0, 4, 4, 0]}>
-                            {spreadData.map((entry, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={index === 0 ? '#1A6B3C' : index === 1 ? '#94a3b8' : '#d93025'} 
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <PortfolioSimulatorTab
+          rawPairs={rawPairs}
+          startingCapital={startingCapital}
+          setStartingCapital={setStartingCapital}
+          allocMethod={allocMethod}
+          setAllocMethod={setAllocMethod}
+          portfolioFinalValue={portfolioFinalValue}
+          benchmarkFinalValue={benchmarkFinalValue}
+          growthData={growthData}
+          totalRuns={totalRuns}
+          portfolioTotalReturn={portfolioTotalReturn}
+          benchmarkTotalReturn={benchmarkTotalReturn}
+          netAlpha={netAlpha}
+          portfolioBeatRate={portfolioBeatRate}
+          spreadData={spreadData}
+        />
       )}
 
       {/* SUB-TAB 3: COHORT VINTAGE PERFORMANCE LEADERBOARD */}
       {subTab === 'vintages' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {vintagesList.length === 0 ? (
-            <div style={{ padding: '3rem', textAlign: 'center', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', color: '#666' }}>
-              <h3>No matured cohorts available.</h3>
-              <p>Try switching to the 30-Day horizon above.</p>
-            </div>
-          ) : (
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-              <h3 style={{ color: '#1A6B3C', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Cohort Vintages Leaderboard</h3>
-              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
-                Performance metrics of the Top 10 recommendations grouped by the calendar month they were made, evaluated over their full {selectedHorizon}-day maturity window.
-              </p>
-
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Month Vintage</th>
-                      <th>Picks Count</th>
-                      <th>Cohort Avg Return</th>
-                      <th>S&P 500 Return</th>
-                      <th>Excess Return (Alpha)</th>
-                      <th>Star Performer</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vintagesList.map((vintage) => {
-                      const isExpanded = expandedMonth === vintage.monthKey;
-                      return (
-                        <Fragment key={vintage.monthKey}>
-                          <tr 
-                            onClick={() => setExpandedMonth(isExpanded ? null : vintage.monthKey)}
-                            style={{ cursor: 'pointer', transition: 'background-color 0.2s', backgroundColor: isExpanded ? '#f8fafc' : 'transparent' }}
-                            onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
-                            onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                          >
-                            <td style={{ fontWeight: '600' }}>
-                              <span style={{ marginRight: '8px', color: '#1A6B3C', fontSize: '0.8rem', display: 'inline-block', width: '12px' }}>
-                                {isExpanded ? '▼' : '►'}
-                              </span>
-                              {vintage.monthName}
-                            </td>
-                            <td>{vintage.count} picks</td>
-                            <td style={{ fontWeight: '500', color: vintage.avgReturn >= 0 ? '#1A6B3C' : '#d93025' }}>
-                              {(vintage.avgReturn * 100).toFixed(1)}%
-                            </td>
-                            <td style={{ color: '#555' }}>
-                              {(vintage.spReturn * 100).toFixed(1)}%
-                            </td>
-                            <td style={{ 
-                              fontWeight: 'bold', 
-                              color: vintage.alpha >= 0 ? '#1A6B3C' : '#d93025',
-                              backgroundColor: vintage.alpha >= 0.02 ? 'rgba(26, 107, 60, 0.05)' : vintage.alpha <= -0.02 ? 'rgba(217, 48, 37, 0.05)' : 'transparent'
-                            }}>
-                              {vintage.alpha >= 0 ? '+' : ''}{(vintage.alpha * 100).toFixed(1)}%
-                            </td>
-                            <td style={{ fontStyle: 'italic', fontSize: '0.85rem', color: '#1e293b' }}>
-                              {vintage.starPick}
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={6} style={{ backgroundColor: '#f8fafc', padding: '1rem' }}>
-                                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'white', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}>
-                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
-                                    <thead>
-                                      <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                                        <th style={{ padding: '8px 12px', color: '#475569' }}>Ticker</th>
-                                        <th style={{ padding: '8px 12px', color: '#475569' }}>Score</th>
-                                        <th style={{ padding: '8px 12px', color: '#475569' }}>Verdict</th>
-                                        <th style={{ padding: '8px 12px', color: '#475569' }}>Stock Return</th>
-                                        <th style={{ padding: '8px 12px', color: '#475569' }}>S&P 500 Return</th>
-                                        <th style={{ padding: '8px 12px', color: '#475569' }}>Alpha</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {vintage.picks.map(pick => {
-                                        const alpha = pick.stockReturn - pick.spReturn;
-                                        return (
-                                          <tr key={pick.ticker} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '8px 12px', fontWeight: 'bold', color: '#0f172a' }}>{pick.ticker}</td>
-                                            <td style={{ padding: '8px 12px', color: '#334155' }}>{pick.score.toFixed(2)}</td>
-                                            <td style={{ padding: '8px 12px' }}>
-                                              <span style={{
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: '600',
-                                                backgroundColor: pick.verdict === 'INVESTIGATE' ? '#e2f0d9' : '#fff2cc',
-                                                color: pick.verdict === 'INVESTIGATE' ? '#385723' : '#b25900'
-                                              }}>
-                                                {pick.verdict}
-                                              </span>
-                                            </td>
-                                            <td style={{ padding: '8px 12px', color: pick.stockReturn >= 0 ? '#1A6B3C' : '#d93025', fontWeight: '500' }}>
-                                              {(pick.stockReturn * 100).toFixed(1)}%
-                                            </td>
-                                            <td style={{ padding: '8px 12px', color: '#64748b' }}>
-                                              {(pick.spReturn * 100).toFixed(1)}%
-                                            </td>
-                                            <td style={{ 
-                                              padding: '8px 12px', 
-                                              fontWeight: 'bold', 
-                                              color: alpha >= 0 ? '#1A6B3C' : '#d93025' 
-                                            }}>
-                                              {alpha >= 0 ? '+' : ''}{(alpha * 100).toFixed(1)}%
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+        <VintageLeaderboardTab
+          vintagesList={vintagesList}
+          selectedHorizon={selectedHorizon}
+          expandedMonth={expandedMonth}
+          setExpandedMonth={setExpandedMonth}
+        />
       )}
     </div>
   );

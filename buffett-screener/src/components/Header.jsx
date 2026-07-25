@@ -1,6 +1,6 @@
 import './Header.css';
 
-export default function Header({ lastUpdated, runCost, universeCoverage, screenedCumulative, onRunNow, isTriggering }) {
+export default function Header({ lastUpdated, runCost, universeCoverage, screenedCumulative, onRunNow, isTriggering, onSignOut }) {
   return (
     <header className="app-header">
       <div className="header-content">
@@ -23,6 +23,15 @@ export default function Header({ lastUpdated, runCost, universeCoverage, screene
           >
             {isTriggering ? 'Triggering...' : 'Run Process'}
           </button> */}
+          {onSignOut && (
+            <button 
+              className="run-now-btn" 
+              onClick={onSignOut} 
+              style={{ backgroundColor: '#d93025', marginLeft: '10px' }}
+            >
+              Sign Out
+            </button>
+          )}
         </div>
       </div>
     </header>
