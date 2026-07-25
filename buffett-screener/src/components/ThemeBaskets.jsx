@@ -82,7 +82,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
   const stocks = activeBasket?.stocks || [];
 
   // Calculate Direct Indexing allocations
-  const totalScoreSum = stocks.reduce((sum, s) => sum + (s.avgCompositeScore || 0), 0);
+  const totalScoreSum = stocks.reduce((sum, s) => sum + Math.max(0, s.avgCompositeScore || 0), 0);
   
   const stocksWithAllocation = stocks.map(stock => {
     let weight = 0;
@@ -90,7 +90,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
       if (weightingStrategy === 'equal') {
         weight = 1 / stocks.length;
       } else {
-        weight = totalScoreSum > 0 ? (stock.avgCompositeScore || 0) / totalScoreSum : 0;
+        weight = totalScoreSum > 0 ? Math.max(0, stock.avgCompositeScore || 0) / totalScoreSum : 0;
       }
     }
     const allocatedCapital = startingCapital * weight;
@@ -205,7 +205,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
                       <input
                         type="number"
                         value={startingCapital}
-                        onChange={(e) => setStartingCapital(Math.max(100, parseInt(e.target.value) || 0))}
+                        onChange={(e) => setStartingCapital(Math.min(100000000, Math.max(100, parseInt(e.target.value) || 0)))}
                         style={{
                           padding: '8px 12px',
                           border: '1px solid #ccc',
@@ -224,35 +224,13 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={() => setWeightingStrategy('score')}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          border: weightingStrategy === 'score' ? '2px solid #1A6B3C' : '1px solid #ccc',
-                          backgroundColor: weightingStrategy === 'score' ? '#e8f5e9' : 'white',
-                          color: weightingStrategy === 'score' ? '#1A6B3C' : '#555',
-                          transition: 'all 0.15s'
-                        }}
+                        className={`strategy-btn ${weightingStrategy === 'score' ? 'active' : 'inactive'}`}
                       >
                         Score-Weighted
                       </button>
                       <button
                         onClick={() => setWeightingStrategy('equal')}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          border: weightingStrategy === 'equal' ? '2px solid #1A6B3C' : '1px solid #ccc',
-                          backgroundColor: weightingStrategy === 'equal' ? '#e8f5e9' : 'white',
-                          color: weightingStrategy === 'equal' ? '#1A6B3C' : '#555',
-                          transition: 'all 0.15s'
-                        }}
+                        className={`strategy-btn ${weightingStrategy === 'equal' ? 'active' : 'inactive'}`}
                       >
                         Equal-Weighted
                       </button>
@@ -264,22 +242,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
               <div>
                 <button
                   onClick={handleExportConfig}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    fontSize: '0.85rem',
-                    fontWeight: 'bold',
-                    backgroundColor: exportSuccess ? '#1e8e3e' : '#475569',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
+                  className={`export-btn ${exportSuccess ? 'success' : 'default'}`}
                 >
                   {exportSuccess ? '✓ Config Copied!' : '📤 Export Pie Config'}
                 </button>
@@ -443,7 +406,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
           lineHeight: '1.5',
           textAlign: 'justify'
         }}>
-          <strong>Regulatory Disclosure:</strong> The thematic allocations presented above are for simulated educational and illustration purposes only. Direct indexing involves purchasing individual securities and carries risk, including potential loss of principal. Performance of custom baskets may deviate from standard benchmark ETFs due to transaction costs, weighting differences, and cash drag. Users should consult a qualified financial advisor before executing trades in live brokerage accounts. Past scoring accuracy is not indicative of future market returns.
+          <strong>Regulatory Disclosure:</strong> The thematic allocations presented above are for simulated educational and illustration purposes only and do not constitute an offer, solicitation, or recommendation to buy or sell any security. Direct indexing involves purchasing individual securities and carries risk, including potential loss of principal. Performance of custom baskets may deviate from standard benchmark ETFs due to transaction costs, weighting differences, cash drag, and execution timings. The simulator does not account for the tax consequences of trading or rebalancing. Exact replication of model weight distributions requires fractional share capabilities; fractional shares are not transferable, do not carry voting rights, and may have liquidity profiles distinct from whole shares. Past performance of any scoring methodology is no guarantee of future results.
         </div>
       )}
     </div>

@@ -206,3 +206,75 @@
   background-color: #888;
   color: white;
 }
+
+.strategy-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  outline: none;
+}
+
+.strategy-btn.active {
+  border: 2px solid #1A6B3C;
+  background-color: #e8f5e9;
+  color: #1A6B3C;
+}
+
+.strategy-btn.active:hover {
+  background-color: #d0edd4;
+  transform: scale(1.02);
+}
+
+.strategy-btn.inactive {
+  border: 1px solid #ccc;
+  background-color: white;
+  color: #555;
+}
+
+.strategy-btn.inactive:hover {
+  border-color: #1A6B3C;
+  color: #1A6B3C;
+  background-color: #fafafa;
+  transform: scale(1.02);
+}
+
+.export-btn {
+  width: 100%;
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  outline: none;
+}
+
+.export-btn.default {
+  background-color: #475569;
+}
+
+.export-btn.default:hover {
+  background-color: #334155;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+}
+
+.export-btn.success {
+  background-color: #1e8e3e;
+}
+
+.export-btn.success:hover {
+  background-color: #1b7f37;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+}
