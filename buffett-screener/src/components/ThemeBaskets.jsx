@@ -108,12 +108,56 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
   let themeWinRate = 0;
 
   if (hasThemePerformance) {
-    themeAvgReturn = (themePairs.reduce((sum, p) => sum + (p.stockReturn || 0), 0) / themePairs.length) * 100;
-    themeSpAvgReturn = (themePairs.reduce((sum, p) => sum + (p.spReturn || 0), 0) / themePairs.length) * 100;
+    // Group theme historical outcomes by runId to compute weighted cohort returns
+    const runsMap = {};
+    themePairs.forEach(p => {
+      if (!runsMap[p.runId]) {
+        runsMap[p.runId] = [];
+      }
+      runsMap[p.runId].push(p);
+    });
+
+    const runIds = Object.keys(runsMap);
+    let totalStockReturnSum = 0;
+    let totalSpReturnSum = 0;
+    let beatOutcomesCount = 0;
+
+    runIds.forEach(runId => {
+      const runPairs = runsMap[runId];
+      if (weightingStrategy === 'equal') {
+        const runStockAvg = runPairs.reduce((sum, p) => sum + (p.stockReturn || 0), 0) / runPairs.length;
+        const runSpAvg = runPairs.reduce((sum, p) => sum + (p.spReturn || 0), 0) / runPairs.length;
+        totalStockReturnSum += runStockAvg;
+        totalSpReturnSum += runSpAvg;
+        if (runStockAvg > runSpAvg) {
+          beatOutcomesCount++;
+        }
+      } else {
+        // Score-weighted calculations
+        const runScoreSum = runPairs.reduce((sum, p) => sum + Math.max(0, p.score || 0), 0);
+        let weightedStockReturn = 0;
+        let weightedSpReturn = 0;
+        
+        runPairs.forEach(p => {
+          const weight = runScoreSum > 0 ? Math.max(0, p.score || 0) / runScoreSum : 0;
+          weightedStockReturn += weight * (p.stockReturn || 0);
+          weightedSpReturn += weight * (p.spReturn || 0);
+        });
+
+        totalStockReturnSum += weightedStockReturn;
+        totalSpReturnSum += weightedSpReturn;
+        if (weightedStockReturn > weightedSpReturn) {
+          beatOutcomesCount++;
+        }
+      }
+    });
+
+    themeAvgReturn = runIds.length > 0 ? (totalStockReturnSum / runIds.length) * 100 : 0;
+    themeSpAvgReturn = runIds.length > 0 ? (totalSpReturnSum / runIds.length) * 100 : 0;
     themeAlpha = themeAvgReturn - themeSpAvgReturn;
     
-    const beatConstituentsCount = themePairs.filter(p => (p.stockReturn || 0) > (p.spReturn || 0)).length;
-    themeWinRate = (beatConstituentsCount / themePairs.length) * 100;
+    // Win rate: percentage of runs/cohorts where the theme beat the S&P 500
+    themeWinRate = runIds.length > 0 ? (beatOutcomesCount / runIds.length) * 100 : 0;
   }
 
   // Calculate Direct Indexing allocations
