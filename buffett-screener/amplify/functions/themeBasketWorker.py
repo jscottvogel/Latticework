@@ -35,6 +35,9 @@ def handler(event, context):
     try:
         response = registry_table.scan()
         themes = response.get('Items', [])
+        while 'LastEvaluatedKey' in response:
+            response = registry_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            themes.extend(response.get('Items', []))
         
         default_themes = [
             {
@@ -123,9 +126,14 @@ def handler(event, context):
             existing_baskets.extend(response.get('Items', []))
             
         if existing_baskets:
-            print(f"Clearing {len(existing_baskets)} existing theme basket entries...")
+            # Deduplicate by key to prevent ValidationException in batch_writer
+            unique_keys = {}
+            for item in existing_baskets:
+                key = (item['themeId'], item['ticker'])
+                unique_keys[key] = item
+            print(f"Clearing {len(unique_keys)} unique theme basket entries (from {len(existing_baskets)} scanned entries)...")
             with basket_table.batch_writer() as batch:
-                for item in existing_baskets:
+                for item in unique_keys.values():
                     batch.delete_item(Key={'themeId': item['themeId'], 'ticker': item['ticker']})
     except Exception as e:
         print(f"Warning: Error clearing ThemeBasket table: {e}")
@@ -212,10 +220,15 @@ def handler(event, context):
 
     # Write matches to ThemeBasket table
     if basket_entries:
-        print(f"Writing {len(basket_entries)} matched theme basket entries...")
+        # Deduplicate entries by themeId and ticker
+        unique_entries = {}
+        for entry in basket_entries:
+            key = (entry['themeId'], entry['ticker'])
+            unique_entries[key] = entry
+        print(f"Writing {len(unique_entries)} unique matched theme basket entries (from {len(basket_entries)} entries)...")
         try:
             with basket_table.batch_writer() as batch:
-                for entry in basket_entries:
+                for entry in unique_entries.values():
                     batch.put_item(Item=entry)
         except Exception as e:
             print(f"Error writing to ThemeBasket: {e}")
