@@ -11,6 +11,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
   const [startingCapital, setStartingCapital] = useState(10000);
   const [weightingStrategy, setWeightingStrategy] = useState('score'); // 'score' or 'equal'
   const [exportSuccess, setExportSuccess] = useState(false);
+  const [validationData, setValidationData] = useState(null);
 
   useEffect(() => {
     async function fetchBaskets() {
@@ -22,13 +23,22 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
       }
       const domain = outputs?.custom?.distributionDomainName || `${bucketName}.s3.amazonaws.com`;
       const url = `https://${domain}/dashboard/theme_baskets.json`;
+      const valUrl = `https://${domain}/dashboard/validation_summary.json?t=${Date.now()}`;
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch thematic baskets. Status: ${response.status}`);
+        const [basketsResponse, valResponse] = await Promise.all([
+          fetch(url),
+          fetch(valUrl)
+        ]);
+        if (!basketsResponse.ok) {
+          throw new Error(`Failed to fetch thematic baskets. Status: ${basketsResponse.status}`);
         }
-        const data = await response.json();
+        const data = await basketsResponse.json();
         setBasketsData(data);
+
+        if (valResponse.ok) {
+          const valData = await valResponse.json();
+          setValidationData(valData);
+        }
         
         // Auto-select the first theme with stocks, or just the first theme
         const basketKeys = Object.keys(data.baskets || {});
@@ -37,7 +47,7 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
           setSelectedThemeId(firstWithStocks || basketKeys[0]);
         }
       } catch (err) {
-        console.error("Error loading thematic baskets:", err);
+        console.error("Error loading thematic baskets data:", err);
         setError(err.message || "Failed to load thematic baskets.");
       } finally {
         setLoading(false);
@@ -80,6 +90,21 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
 
   const activeBasket = baskets[selectedThemeId];
   const stocks = activeBasket?.stocks || [];
+
+  // Calculate Theme Backtest Performance from constituent raw validation outcomes
+  const themeTickers = new Set(stocks.map(s => s.ticker));
+  const rawPairs = validationData?.horizons?.['30']?.rawPairs || [];
+  const themePairs = rawPairs.filter(p => themeTickers.has(p.ticker));
+  const hasThemePerformance = themePairs.length > 0;
+  let themeAvgReturn = 0;
+  let themeSpAvgReturn = 0;
+  let themeAlpha = 0;
+
+  if (hasThemePerformance) {
+    themeAvgReturn = (themePairs.reduce((sum, p) => sum + (p.stockReturn || 0), 0) / themePairs.length) * 100;
+    themeSpAvgReturn = (themePairs.reduce((sum, p) => sum + (p.spReturn || 0), 0) / themePairs.length) * 100;
+    themeAlpha = themeAvgReturn - themeSpAvgReturn;
+  }
 
   // Calculate Direct Indexing allocations
   const totalScoreSum = stocks.reduce((sum, s) => sum + Math.max(0, s.avgCompositeScore || 0), 0);
@@ -252,48 +277,97 @@ export default function ThemeBaskets({ onPrioritize, onGenerateMemo, newestRunId
               </div>
             </div>
 
-            {/* Right Chart Visualization */}
+            {/* Right Chart & Performance Section */}
             <div style={{
-              backgroundColor: 'white',
-              padding: '1.2rem',
-              borderRadius: '8px',
-              border: '1px solid #e0e0e0',
               display: 'flex',
               flexDirection: 'column',
-              height: '300px'
+              gap: '1rem'
             }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Simulated Weight Allocation (%)
-              </h4>
-              <div style={{ flexGrow: 1, position: 'relative' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {pieChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value, name, props) => [`$${value.toLocaleString()} (${props.payload.weightPct}%)`, 'Allocated']}
-                      contentStyle={{ borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem' }}
-                    />
-                    <Legend
-                      verticalAlign="bottom"
-                      height={40}
-                      iconSize={8}
-                      iconType="circle"
-                      wrapperStyle={{ fontSize: '0.8rem', paddingTop: '10px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+              {/* Pie Chart Card */}
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1.2rem',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '240px'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Simulated Weight Allocation (%)
+                </h4>
+                <div style={{ flexGrow: 1, position: 'relative' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {pieChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name, props) => [`$${value.toLocaleString()} (${props.payload.weightPct}%)`, 'Allocated']}
+                        contentStyle={{ borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={30}
+                        iconSize={8}
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '0.75rem', paddingTop: '5px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Theme Performance Card */}
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1.2rem 1.5rem',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                gap: '10px'
+              }}>
+                <h4 style={{ margin: '0', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  📈 30-Day Cohort Historical Returns
+                </h4>
+                
+                {hasThemePerformance ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <span style={{ color: '#666' }}>Theme Avg Return (Constituents)</span>
+                      <span style={{ fontWeight: 'bold', color: '#1A6B3C' }}>+{themeAvgReturn.toFixed(2)}%</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <span style={{ color: '#666' }}>S&P 500 Index Avg Return</span>
+                      <span style={{ fontWeight: 'bold', color: '#555' }}>+{themeSpAvgReturn.toFixed(2)}%</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderTop: '1px dashed #ddd', paddingTop: '6px' }}>
+                      <span style={{ color: '#333', fontWeight: 'bold' }}>Thematic Alpha (Outperformance)</span>
+                      <span style={{ fontWeight: 'bold', color: themeAlpha >= 0 ? '#1A6B3C' : '#d93025' }}>
+                        {themeAlpha >= 0 ? '+' : ''}{themeAlpha.toFixed(2)}%
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: '#888', fontStyle: 'italic', marginTop: '4px' }}>
+                      *Based on {themePairs.length} historical 30-day validation observations.
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic', padding: '10px 0' }}>
+                    No historical validation outcomes computed yet for these theme constituents.
+                  </div>
+                )}
               </div>
             </div>
           </div>
