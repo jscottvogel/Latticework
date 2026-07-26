@@ -204,6 +204,15 @@ const memoGeneratorLambda = new lambda.Function(stack, 'MemoGenerator', {
   memorySize: 512,
 });
 
+const advisorCompetitionWorkerLambda = new lambda.Function(stack, 'AdvisorCompetitionWorker', {
+  runtime: lambda.Runtime.PYTHON_3_11,
+  handler: 'advisorCompetitionWorker.handler',
+  code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
+  architecture: lambda.Architecture.ARM_64,
+  timeout: Duration.seconds(900),
+  memorySize: 512,
+});
+
 // Grant permissions
 const allLambdas = [
   orchestratorLambda, 
@@ -214,7 +223,8 @@ const allLambdas = [
   monteCarloLambda, 
   backtestValidatorLambda,
   themeBasketWorkerLambda,
-  memoGeneratorLambda
+  memoGeneratorLambda,
+  advisorCompetitionWorkerLambda
 ];
 
 allLambdas.forEach(fn => {
@@ -280,6 +290,10 @@ memoGeneratorLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTab
 memoGeneratorLambda.addEnvironment('DYNAMODB_TABLE_RAW_FINANCIALS', rawFinancialsTable.tableName);
 memoGeneratorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 
+advisorCompetitionWorkerLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.tableName);
+advisorCompetitionWorkerLambda.addEnvironment('DYNAMODB_TABLE_SCORE_OUTCOMES', scoreOutcomesTable.tableName);
+advisorCompetitionWorkerLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
+
 // EventBridge Scheduler (Mon-Fri at 8 AM CST / 2 PM UTC)
 const dailyRule = new events.Rule(stack, 'DailyRunRule', {
   schedule: events.Schedule.cron({ minute: '0', hour: '14', weekDay: 'MON-FRI' }),
@@ -292,6 +306,7 @@ const weeklyValidationRule = new events.Rule(stack, 'WeeklyValidationRule', {
 });
 weeklyValidationRule.addTarget(new targets.LambdaFunction(backtestValidatorLambda));
 weeklyValidationRule.addTarget(new targets.LambdaFunction(themeBasketWorkerLambda));
+weeklyValidationRule.addTarget(new targets.LambdaFunction(advisorCompetitionWorkerLambda));
 
 // Add Function URL for manual trigger
 const orchestratorUrl = orchestratorLambda.addFunctionUrl({

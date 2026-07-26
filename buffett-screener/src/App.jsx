@@ -9,6 +9,7 @@ import ScoreCard from './components/ScoreCard';
 import Footer from './components/Footer';
 import ValidationPanel from './components/ValidationPanel';
 import ThemeBaskets from './components/ThemeBaskets';
+import AdvisorTournament from './components/AdvisorTournament';
 import MemoModal from './components/MemoModal';
 import './App.css';
 
@@ -339,6 +340,12 @@ function App({ signOut, user }) {
           >
             Themes
           </button>
+          <button
+            className={ `tab ${ activeTab === 'competition' ? 'active' : '' }` }
+            onClick={ () => setActiveTab( 'competition' ) }
+          >
+            Advisors Arena
+          </button>
         </div>
 
         { loading ? (
@@ -401,6 +408,10 @@ function App({ signOut, user }) {
 
             { activeTab === 'themes' && (
               <ThemeBaskets onPrioritize={ handlePrioritizeScan } onGenerateMemo={ handleGenerateMemo } newestRunId={ weeklyRuns[0]?.runId } />
+            ) }
+
+            { activeTab === 'competition' && (
+              <AdvisorTournament />
             ) }
           </div>
         ) }
