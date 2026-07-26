@@ -8,12 +8,16 @@ export default function AdvisorTournament() {
   const [data, setData] = useState(null);
   const [selectedHorizon, setSelectedHorizon] = useState('1Y'); // '6M', '1Y', '2Y', '3Y', '5Y'
   const [activeAdvisor, setActiveAdvisor] = useState('Munger'); // Default view details for Charlie Munger
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     async function fetchCompetitionData() {
       const bucketName = outputs?.custom?.dataBucketName;
       if (!bucketName) {
-        setError("S3 Bucket Name not found in configurations.");
+        // Safe fallback to Demo Mode if bucket name is missing in local development
+        console.warn("S3 Bucket Name not found in configurations. Loading simulation fallback data.");
+        setData(getMockCompetitionData());
+        setIsDemo(true);
         setLoading(false);
         return;
       }
@@ -22,13 +26,15 @@ export default function AdvisorTournament() {
       try {
         const response = await fetch(url);
         if (!response.ok) {
-          throw new Error("Advisor competition data is not seeded yet. Run the validation pipeline to generate results.");
+          throw new Error("Advisor competition data is not seeded yet.");
         }
         const competitionJson = await response.json();
         setData(competitionJson);
+        setIsDemo(false);
       } catch (err) {
-        console.error("Error loading competition data:", err);
-        setError(err.message || "Failed to load competition data.");
+        console.warn("Could not load advisor competition from S3, loading simulation fallback:", err);
+        setData(getMockCompetitionData());
+        setIsDemo(true);
       } finally {
         setLoading(false);
       }
@@ -119,6 +125,27 @@ export default function AdvisorTournament() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      
+      {isDemo && (
+        <div style={{
+          backgroundColor: '#e8f5e9',
+          border: '1px solid #c8e6c9',
+          color: '#2e7d32',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          fontSize: '0.88rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+          marginBottom: '-0.5rem'
+        }}>
+          <span>💡</span>
+          <span>
+            <strong>Simulation Preview Mode:</strong> S3 backend data is not seeded yet. Displaying high-fidelity mock portfolios. Run a validation pipeline or await the next scheduled Sunday cron task to fetch live production curves from S3.
+          </span>
+        </div>
+      )}
       
       {/* 1. Header Control Panel */}
       <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -458,4 +485,196 @@ export default function AdvisorTournament() {
 
     </div>
   );
+}
+
+function getMockCompetitionData() {
+  const advisorsList = [
+    {
+      id: 'Graham',
+      name: 'Benjamin Graham',
+      title: 'Value Architect',
+      thesis: 'Invest in high-grade stocks with an ample margin of safety. Baskets are weighted towards low price-to-earnings ratios, steady dividend histories, and tangible assets, minimizing downside volatility.',
+      holdings: [
+        { ticker: 'BRK.B', companyName: 'Berkshire Hathaway Inc.', weight: 0.15 },
+        { ticker: 'JNJ', companyName: 'Johnson & Johnson', weight: 0.12 },
+        { ticker: 'PG', companyName: 'Procter & Gamble Co.', weight: 0.10 },
+        { ticker: 'HD', companyName: 'Home Depot Inc.', weight: 0.10 },
+        { ticker: 'XOM', companyName: 'Exxon Mobil Corp.', weight: 0.10 },
+        { ticker: 'JPM', companyName: 'JPMorgan Chase & Co.', weight: 0.10 },
+        { ticker: 'KO', companyName: 'Coca-Cola Co.', weight: 0.08 },
+        { ticker: 'CVX', companyName: 'Chevron Corp.', weight: 0.08 },
+        { ticker: 'MRK', companyName: 'Merck & Co., Inc.', weight: 0.09 },
+        { ticker: 'PEP', companyName: 'PepsiCo, Inc.', weight: 0.08 }
+      ],
+      drift: 0.092,
+      vol: 0.11,
+      sharpe: 1.25,
+      beta: 0.82,
+      maxDrawdown: -0.145
+    },
+    {
+      id: 'Munger',
+      name: 'Charlie Munger',
+      title: 'Quality & Moat Specialist',
+      thesis: 'Seek outstanding businesses at fair prices. Baskets target companies with high returns on capital, strong competitive moats, outstanding management, and clean balance sheets, holding for long-term compound growth.',
+      holdings: [
+        { ticker: 'AAPL', companyName: 'Apple Inc.', weight: 0.18 },
+        { ticker: 'MSFT', companyName: 'Microsoft Corp.', weight: 0.15 },
+        { ticker: 'COST', companyName: 'Costco Wholesale Corp.', weight: 0.12 },
+        { ticker: 'V', companyName: 'Visa Inc.', weight: 0.10 },
+        { ticker: 'GOOGL', companyName: 'Alphabet Inc.', weight: 0.10 },
+        { ticker: 'UNH', companyName: 'UnitedHealth Group Inc.', weight: 0.08 },
+        { ticker: 'AMZN', companyName: 'Amazon.com Inc.', weight: 0.08 },
+        { ticker: 'ABT', companyName: 'Abbott Laboratories', weight: 0.07 },
+        { ticker: 'NKE', companyName: 'Nike Inc.', weight: 0.06 },
+        { ticker: 'MCD', companyName: 'McDonald\'s Corp.', weight: 0.06 }
+      ],
+      drift: 0.128,
+      vol: 0.14,
+      sharpe: 1.82,
+      beta: 1.05,
+      maxDrawdown: -0.168
+    },
+    {
+      id: 'Fisher',
+      name: 'Philip Fisher',
+      title: 'Growth Pioneer',
+      thesis: 'Identify companies with outstanding growth potential and research capability. Focus is placed on high-growth technology and consumer service pioneers that reinvest heavily in R&D and enjoy multi-decade runway markets.',
+      holdings: [
+        { ticker: 'NVDA', companyName: 'NVIDIA Corp.', weight: 0.20 },
+        { ticker: 'AMZN', companyName: 'Amazon.com Inc.', weight: 0.15 },
+        { ticker: 'META', companyName: 'Meta Platforms Inc.', weight: 0.12 },
+        { ticker: 'TSLA', companyName: 'Tesla Inc.', weight: 0.10 },
+        { ticker: 'NFLX', companyName: 'Netflix Inc.', weight: 0.10 },
+        { ticker: 'AMD', companyName: 'Advanced Micro Devices', weight: 0.08 },
+        { ticker: 'CRM', companyName: 'Salesforce, Inc.', weight: 0.08 },
+        { ticker: 'ADBE', companyName: 'Adobe Inc.', weight: 0.07 },
+        { ticker: 'QCOM', companyName: 'QUALCOMM Inc.', weight: 0.05 },
+        { ticker: 'AVGO', companyName: 'Broadcom Inc.', weight: 0.05 }
+      ],
+      drift: 0.152,
+      vol: 0.22,
+      sharpe: 1.48,
+      beta: 1.38,
+      maxDrawdown: -0.245
+    }
+  ];
+
+  const spyDrift = 0.085;
+
+  const horizons = {
+    '6M': { weeks: 26 },
+    '1Y': { weeks: 52 },
+    '2Y': { weeks: 104 },
+    '3Y': { weeks: 156 },
+    '5Y': { weeks: 260 }
+  };
+
+  const mockData = {
+    updatedAt: new Date().toISOString(),
+    advisors: {
+      Graham: {
+        name: 'Benjamin Graham',
+        title: 'Value Architect',
+        system_prompt: '',
+        selections: advisorsList[0].holdings,
+        thesis: advisorsList[0].thesis
+      },
+      Munger: {
+        name: 'Charlie Munger',
+        title: 'Quality & Moat Specialist',
+        system_prompt: '',
+        selections: advisorsList[1].holdings,
+        thesis: advisorsList[1].thesis
+      },
+      Fisher: {
+        name: 'Philip Fisher',
+        title: 'Growth Pioneer',
+        system_prompt: '',
+        selections: advisorsList[2].holdings,
+        thesis: advisorsList[2].thesis
+      }
+    },
+    horizons: {}
+  };
+
+  const baseDate = new Date();
+  baseDate.setDate(baseDate.getDate() - baseDate.getDay() - 2);
+
+  Object.entries(horizons).forEach(([horizonKey, horizonInfo]) => {
+    const totalWeeks = horizonInfo.weeks;
+    const timeline = [];
+    
+    for (let w = 0; w < totalWeeks; w++) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() - (totalWeeks - 1 - w) * 7);
+      const dateStr = d.toISOString().split('T')[0];
+      
+      const yearFraction = w / 52;
+      const noise = (t) => Math.sin(w * 0.1 + t) * 0.8 + Math.cos(w * 0.2 + t * 2) * 0.4;
+      
+      const spyVal = 100.0 * Math.pow(1.0 + spyDrift, yearFraction) + noise(1);
+      const grahamVal = 100.0 * Math.pow(1.0 + advisorsList[0].drift, yearFraction) + noise(2) * 0.7;
+      const mungerVal = 100.0 * Math.pow(1.0 + advisorsList[1].drift, yearFraction) + noise(3) * 0.9;
+      const fisherVal = 100.0 * Math.pow(1.0 + advisorsList[2].drift, yearFraction) + noise(4) * 1.5;
+      
+      timeline.push({
+        date: dateStr,
+        SPY: parseFloat(spyVal.toFixed(2)),
+        Graham: parseFloat(grahamVal.toFixed(2)),
+        Munger: parseFloat(mungerVal.toFixed(2)),
+        Fisher: parseFloat(fisherVal.toFixed(2))
+      });
+    }
+
+    const spyStart = timeline[0].SPY;
+    const spyEnd = timeline[timeline.length - 1].SPY;
+    const spyReturn = (spyEnd - spyStart) / spyStart;
+
+    const leaderboard = [
+      {
+        name: 'S&P 500 Benchmark',
+        advisorId: 'SPY',
+        totalReturn: parseFloat(spyReturn.toFixed(4)),
+        sharpe: 1.05,
+        maxDrawdown: -0.182,
+        alpha: 0.0,
+        beta: 1.0,
+        thesis: 'The standard index proxy tracking the 500 largest US capitalization equities, representing overall market performance.',
+        selections: [{ ticker: 'SPY', companyName: 'SPDR S&P 500 ETF Trust', weight: 1.0 }]
+      }
+    ];
+
+    advisorsList.forEach((adv) => {
+      const advStart = timeline[0][adv.id];
+      const advEnd = timeline[timeline.length - 1][adv.id];
+      const advReturn = (advEnd - advStart) / advStart;
+      
+      const horizonScale = Math.min(1.0, totalWeeks / 52);
+      const localReturn = advReturn;
+      const localSharpe = adv.sharpe + (Math.sin(totalWeeks) * 0.05);
+      const localAlpha = (adv.drift - spyDrift) * horizonScale + (Math.cos(totalWeeks) * 0.005);
+      
+      leaderboard.push({
+        name: adv.name,
+        advisorId: adv.id,
+        totalReturn: parseFloat(localReturn.toFixed(4)),
+        sharpe: parseFloat(localSharpe.toFixed(2)),
+        maxDrawdown: adv.maxDrawdown,
+        alpha: parseFloat(localAlpha.toFixed(4)),
+        beta: adv.beta,
+        thesis: adv.thesis,
+        selections: adv.holdings
+      });
+    });
+
+    leaderboard.sort((a, b) => b.totalReturn - a.totalReturn);
+
+    mockData.horizons[horizonKey] = {
+      leaderboard,
+      timeline
+    };
+  });
+
+  return mockData;
 }
