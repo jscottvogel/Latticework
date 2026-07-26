@@ -243,6 +243,7 @@ monteCarloLambda.grantInvoke(orchestratorLambda);
 memoGeneratorLambda.grantInvoke(orchestratorLambda);
 backtestValidatorLambda.grantInvoke(orchestratorLambda);
 themeBasketWorkerLambda.grantInvoke(orchestratorLambda);
+advisorCompetitionWorkerLambda.grantInvoke(orchestratorLambda);
 
 // Set environment variables
 orchestratorLambda.addEnvironment('DATA_FETCH_FUNCTION_NAME', dataFetchLambda.functionName);
@@ -253,6 +254,7 @@ orchestratorLambda.addEnvironment('MONTE_CARLO_FUNCTION_NAME', monteCarloLambda.
 orchestratorLambda.addEnvironment('MEMO_GENERATOR_FUNCTION_NAME', memoGeneratorLambda.functionName);
 orchestratorLambda.addEnvironment('BACKTEST_VALIDATOR_FUNCTION_NAME', backtestValidatorLambda.functionName);
 orchestratorLambda.addEnvironment('THEME_BASKET_WORKER_FUNCTION_NAME', themeBasketWorkerLambda.functionName);
+orchestratorLambda.addEnvironment('ADVISOR_COMPETITION_WORKER_FUNCTION_NAME', advisorCompetitionWorkerLambda.functionName);
 
 // Set environment variables
 dataFetchLambda.addEnvironment('QUANT_FILTER_FUNCTION_NAME', quantFilterLambda.functionName);

@@ -560,10 +560,11 @@ def handler(event, context):
         print('Exporting dashboard...')
         export_dashboard_to_s3(run_id, scores)
         
-        # Trigger BacktestValidator and ThemeBasketWorker asynchronously
+        # Trigger BacktestValidator, ThemeBasketWorker and AdvisorCompetitionWorker asynchronously
         try:
             validator_fn = os.environ.get('BACKTEST_VALIDATOR_FUNCTION_NAME')
             worker_fn = os.environ.get('THEME_BASKET_WORKER_FUNCTION_NAME')
+            advisor_fn = os.environ.get('ADVISOR_COMPETITION_WORKER_FUNCTION_NAME')
             lambda_client = boto3.client('lambda')
             
             if validator_fn:
@@ -578,8 +579,14 @@ def handler(event, context):
                     FunctionName=worker_fn,
                     InvocationType='Event'
                 )
+            if advisor_fn:
+                print("Triggering AdvisorCompetitionWorker asynchronously...")
+                lambda_client.invoke(
+                    FunctionName=advisor_fn,
+                    InvocationType='Event'
+                )
         except Exception as trigger_err:
-            print(f"Warning: Failed to trigger validation/theme workers: {trigger_err}")
+            print(f"Warning: Failed to trigger validation/theme/advisor workers: {trigger_err}")
         
         # Complete
         import decimal
