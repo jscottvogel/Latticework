@@ -106,6 +106,11 @@ def test_handler_success(mock_urlopen, mock_resource, mock_client):
     assert 'Beater' in result['advisors']
     assert 'MoatCompounders' in result['advisors']
     assert 'ValueGap' in result['advisors']
+    assert 'Lynch' in result['advisors']
+    assert 'Greenblatt' in result['advisors']
+    assert 'Dividend' in result['advisors']
+    assert 'RiskParity' in result['advisors']
+    assert 'Momentum' in result['advisors']
     assert '6M' in result['horizons_calculated']
     assert '5Y' in result['horizons_calculated']
     
@@ -131,11 +136,16 @@ def test_handler_success(mock_urlopen, mock_resource, mock_client):
     assert 'Beater' in timeline[0]
     assert 'MoatCompounders' in timeline[0]
     assert 'ValueGap' in timeline[0]
+    assert 'Lynch' in timeline[0]
+    assert 'Greenblatt' in timeline[0]
+    assert 'Dividend' in timeline[0]
+    assert 'RiskParity' in timeline[0]
+    assert 'Momentum' in timeline[0]
     assert 'SPY' in timeline[0]
     
     # Verify stats
     leaderboard = uploaded_json['horizons']['6M']['leaderboard']
-    assert len(leaderboard) == 7 # Graham, Munger, Fisher, Beater, MoatCompounders, ValueGap, SPY
+    assert len(leaderboard) == 12 # 11 strategies + SPY
     for entity in leaderboard:
         assert 'totalReturn' in entity
         assert 'sharpe' in entity

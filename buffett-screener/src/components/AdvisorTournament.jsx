@@ -88,13 +88,18 @@ export default function AdvisorTournament() {
 
   // Colors mapping for advisors
   const advisorColors = {
-    'Graham': '#1e88e5',    // Classic Blue
-    'Munger': '#2e7d32',    // Deep Green
-    'Fisher': '#e65100',    // Dark Orange
-    'Beater': '#8e24aa',    // Sleek Purple
-    'MoatCompounders': '#00acc1', // Cyan/Teal
-    'ValueGap': '#ff8f00',        // Dark Amber/Gold
-    'SPY': '#78909c'        // Cool Slate Grey
+    'Graham': '#1e88e5',          // Classic Blue
+    'Munger': '#2e7d32',          // Deep Green
+    'Fisher': '#e65100',          // Dark Orange
+    'Beater': '#8e24aa',          // Sleek Purple
+    'MoatCompounders': '#00acc1',  // Cyan/Teal
+    'ValueGap': '#ff8f00',         // Dark Amber/Gold
+    'Lynch': '#4db6ac',           // Minty Teal
+    'Greenblatt': '#5c6bc0',      // Cool Indigo
+    'Dividend': '#ec407a',        // Warm Pink
+    'RiskParity': '#9ccc65',       // Lime Green
+    'Momentum': '#ef5350',         // Light Coral Red
+    'SPY': '#78909c'              // Cool Slate Grey
   };
 
   const handleExportConfig = (advId, advData) => {
@@ -375,6 +380,51 @@ export default function AdvisorTournament() {
                 activeDot={{ r: 6 }}
               />
               <Line 
+                name="Peter Lynch (GARP)" 
+                type="monotone" 
+                dataKey="Lynch" 
+                stroke={advisorColors.Lynch} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
+                name="Joel Greenblatt (Magic)" 
+                type="monotone" 
+                dataKey="Greenblatt" 
+                stroke={advisorColors.Greenblatt} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
+                name="Dividend Aristocrats" 
+                type="monotone" 
+                dataKey="Dividend" 
+                stroke={advisorColors.Dividend} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
+                name="MPT Risk Parity (Rule)" 
+                type="monotone" 
+                dataKey="RiskParity" 
+                stroke={advisorColors.RiskParity} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
+                name="Screener Momentum (Rule)" 
+                type="monotone" 
+                dataKey="Momentum" 
+                stroke={advisorColors.Momentum} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
                 name="S&P 500 Index (Benchmark)" 
                 type="monotone" 
                 dataKey="SPY" 
@@ -641,6 +691,98 @@ function getMockCompetitionData() {
       sharpe: 1.45,
       beta: 0.88,
       maxDrawdown: -0.135
+    },
+    {
+      id: 'Lynch',
+      name: 'Peter Lynch',
+      title: 'Peter Lynch (GARP)',
+      thesis: 'Selects fast-growing businesses trading at reasonable PEG ratios (PEG < 1.2) with low debt and high sales growth.',
+      holdings: [
+        { ticker: 'LLY', companyName: 'Eli Lilly & Co.', weight: 0.20 },
+        { ticker: 'ANET', companyName: 'Arista Networks Inc.', weight: 0.20 },
+        { ticker: 'CPRT', companyName: 'Copart Inc.', weight: 0.20 },
+        { ticker: 'DECK', companyName: 'Deckers Outdoor Corp.', weight: 0.20 },
+        { ticker: 'LULU', companyName: 'Lululemon Athletica', weight: 0.20 }
+      ],
+      drift: 0.138,
+      vol: 0.17,
+      sharpe: 1.55,
+      beta: 1.15,
+      maxDrawdown: -0.195
+    },
+    {
+      id: 'Greenblatt',
+      name: 'Joel Greenblatt',
+      title: 'Joel Greenblatt (Magic)',
+      thesis: 'Systematically ranks stocks on operating earnings yield (cheapness) and return on capital (quality).',
+      holdings: [
+        { ticker: 'NVR', companyName: 'NVR Inc.', weight: 0.20 },
+        { ticker: 'GRMN', companyName: 'Garmin Ltd.', weight: 0.20 },
+        { ticker: 'SNA', companyName: 'Snap-on Inc.', weight: 0.20 },
+        { ticker: 'FDS', companyName: 'FactSet Research Systems', weight: 0.20 },
+        { ticker: 'IT', companyName: 'Gartner Inc.', weight: 0.20 }
+      ],
+      drift: 0.145,
+      vol: 0.15,
+      sharpe: 1.70,
+      beta: 1.02,
+      maxDrawdown: -0.160
+    },
+    {
+      id: 'Dividend',
+      name: 'Dividend Aristocrats',
+      title: 'Dividend Aristocrats',
+      thesis: 'Selects the highest dividend-yielding stocks with payout ratios below 60% to ensure cash flow safety.',
+      holdings: [
+        { ticker: 'PG', companyName: 'Procter & Gamble Co.', weight: 0.20 },
+        { ticker: 'KO', companyName: 'Coca-Cola Co.', weight: 0.20 },
+        { ticker: 'PEP', companyName: 'PepsiCo Inc.', weight: 0.20 },
+        { ticker: 'JNJ', companyName: 'Johnson & Johnson', weight: 0.20 },
+        { ticker: 'MCD', companyName: 'McDonald\'s Corp.', weight: 0.20 }
+      ],
+      drift: 0.098,
+      vol: 0.10,
+      sharpe: 1.35,
+      beta: 0.78,
+      maxDrawdown: -0.125
+    },
+    {
+      id: 'RiskParity',
+      name: 'MPT Risk Parity',
+      title: 'MPT Risk Parity (Rule)',
+      thesis: 'Balances risk contribution across diverse sectors, weighting holdings inversely proportional to their volatility.',
+      holdings: [
+        { ticker: 'JNJ', companyName: 'Johnson & Johnson', weight: 0.18 },
+        { ticker: 'PG', companyName: 'Procter & Gamble Co.', weight: 0.16 },
+        { ticker: 'AAPL', companyName: 'Apple Inc.', weight: 0.12 },
+        { ticker: 'MSFT', companyName: 'Microsoft Corp.', weight: 0.11 },
+        { ticker: 'UNH', companyName: 'UnitedHealth Group', weight: 0.15 },
+        { ticker: 'KO', companyName: 'Coca-Cola Co.', weight: 0.14 },
+        { ticker: 'PEP', companyName: 'PepsiCo Inc.', weight: 0.14 }
+      ],
+      drift: 0.112,
+      vol: 0.08,
+      sharpe: 1.95,
+      beta: 0.72,
+      maxDrawdown: -0.098
+    },
+    {
+      id: 'Momentum',
+      name: 'Screener Momentum',
+      title: 'Screener Momentum (Rule)',
+      thesis: 'Selects the top candidate stocks with the highest historical relative price strength over the last 6 months.',
+      holdings: [
+        { ticker: 'NVDA', companyName: 'NVIDIA Corp.', weight: 0.25 },
+        { ticker: 'ANET', companyName: 'Arista Networks Inc.', weight: 0.25 },
+        { ticker: 'DECK', companyName: 'Deckers Outdoor Corp.', weight: 0.20 },
+        { ticker: 'LLY', companyName: 'Eli Lilly & Co.', weight: 0.15 },
+        { ticker: 'MPWR', companyName: 'Monolithic Power Systems', weight: 0.15 }
+      ],
+      drift: 0.165,
+      vol: 0.24,
+      sharpe: 1.32,
+      beta: 1.45,
+      maxDrawdown: -0.275
     }
   ];
 
@@ -698,6 +840,41 @@ function getMockCompetitionData() {
         system_prompt: '',
         selections: advisorsList[5].holdings,
         thesis: advisorsList[5].thesis
+      },
+      Lynch: {
+        name: 'Peter Lynch',
+        title: 'Peter Lynch (GARP)',
+        system_prompt: '',
+        selections: advisorsList[6].holdings,
+        thesis: advisorsList[6].thesis
+      },
+      Greenblatt: {
+        name: 'Joel Greenblatt',
+        title: 'Joel Greenblatt (Magic)',
+        system_prompt: '',
+        selections: advisorsList[7].holdings,
+        thesis: advisorsList[7].thesis
+      },
+      Dividend: {
+        name: 'Dividend Aristocrats',
+        title: 'Dividend Aristocrats',
+        system_prompt: '',
+        selections: advisorsList[8].holdings,
+        thesis: advisorsList[8].thesis
+      },
+      RiskParity: {
+        name: 'MPT Risk Parity',
+        title: 'MPT Risk Parity (Rule)',
+        system_prompt: '',
+        selections: advisorsList[9].holdings,
+        thesis: advisorsList[9].thesis
+      },
+      Momentum: {
+        name: 'Screener Momentum',
+        title: 'Screener Momentum (Rule)',
+        system_prompt: '',
+        selections: advisorsList[10].holdings,
+        thesis: advisorsList[10].thesis
       }
     },
     horizons: {}
@@ -725,6 +902,11 @@ function getMockCompetitionData() {
       const beaterVal = 100.0 * Math.pow(1.0 + advisorsList[3].drift, yearFraction) + noise(5) * 1.1;
       const moatCompVal = 100.0 * Math.pow(1.0 + advisorsList[4].drift, yearFraction) + noise(6) * 0.8;
       const valueGapVal = 100.0 * Math.pow(1.0 + advisorsList[5].drift, yearFraction) + noise(7) * 0.6;
+      const lynchVal = 100.0 * Math.pow(1.0 + advisorsList[6].drift, yearFraction) + noise(8) * 1.2;
+      const greenblattVal = 100.0 * Math.pow(1.0 + advisorsList[7].drift, yearFraction) + noise(9) * 1.0;
+      const divVal = 100.0 * Math.pow(1.0 + advisorsList[8].drift, yearFraction) + noise(10) * 0.5;
+      const rpVal = 100.0 * Math.pow(1.0 + advisorsList[9].drift, yearFraction) + noise(11) * 0.4;
+      const momVal = 100.0 * Math.pow(1.0 + advisorsList[10].drift, yearFraction) + noise(12) * 1.8;
       
       timeline.push({
         date: dateStr,
@@ -734,7 +916,12 @@ function getMockCompetitionData() {
         Fisher: parseFloat(fisherVal.toFixed(2)),
         Beater: parseFloat(beaterVal.toFixed(2)),
         MoatCompounders: parseFloat(moatCompVal.toFixed(2)),
-        ValueGap: parseFloat(valueGapVal.toFixed(2))
+        ValueGap: parseFloat(valueGapVal.toFixed(2)),
+        Lynch: parseFloat(lynchVal.toFixed(2)),
+        Greenblatt: parseFloat(greenblattVal.toFixed(2)),
+        Dividend: parseFloat(divVal.toFixed(2)),
+        RiskParity: parseFloat(rpVal.toFixed(2)),
+        Momentum: parseFloat(momVal.toFixed(2))
       });
     }
 

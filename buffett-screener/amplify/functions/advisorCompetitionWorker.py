@@ -232,6 +232,27 @@ def handler(event, context):
             'desc': 'Focuses on organic revenue momentum, outstanding management capabilities, heavy R&D compounds, and market cap scalability.',
             'system_prompt': 'You are Philip Fisher, pioneer of growth investing. You look for businesses with massive tailwinds and scuttlebutt research scores.',
             'prompt': 'Select exactly 10 stocks from the provided list that display the strongest structural growth, R&D reinvestment, and product superiority. Assign a percentage weight to each (must sum to 100%, weight between 5% and 20% each). Return valid JSON only.'
+        },
+        'Lynch': {
+            'name': 'Peter Lynch',
+            'title': 'Peter Lynch (GARP)',
+            'desc': 'Focuses on organic revenue growth, market cap scalability, low PEG ratio, and strong industry tailwinds.',
+            'system_prompt': 'You are Peter Lynch, the legendary mutual fund manager of Magellan. You look for growth at a reasonable price (GARP) and companies with low PEG multiples.',
+            'prompt': 'Select exactly 10 stocks from the provided list that display strong organic growth, reasonable valuation (GARP), and positive earnings momentum. Assign a percentage weight to each (must sum to 100%, weight between 5% and 20% each). Return valid JSON only.'
+        },
+        'Greenblatt': {
+            'name': 'Joel Greenblatt',
+            'title': 'Joel Greenblatt (Magic)',
+            'desc': 'Focuses on buying good companies with high operating profit margins and cheap enterprise-value valuations.',
+            'system_prompt': 'You are Joel Greenblatt, the author of The Little Book That Beats the Market. You favor companies with high earnings yields and high return on capital (Magic Formula).',
+            'prompt': 'Select exactly 10 stocks from the provided list that display the highest combination of operating profit yield and return on invested capital. Assign a percentage weight to each (must sum to 100%, weight between 5% and 20% each). Return valid JSON only.'
+        },
+        'Dividend': {
+            'name': 'Dividend Aristocrats',
+            'title': 'Dividend Aristocrats',
+            'desc': 'Focuses on stable, defensive cash-flow compounders with sustainable payouts and dividend growth potential.',
+            'system_prompt': 'You are a conservative income-focused financial planner. You seek companies with strong balance sheets, stable business models, and sustainable dividend potential.',
+            'prompt': 'Select exactly 10 stocks from the provided list that represent the most stable, mature businesses with sustainable cash flows and balance sheets. Assign a percentage weight to each (must sum to 100%, weight between 5% and 20% each). Return valid JSON only.'
         }
     }
     
@@ -454,6 +475,93 @@ def handler(event, context):
         'thesis': value_thesis
     }
     
+    # 4d. MPT Risk Parity Strategy Selections
+    diversified_selected = []
+    sector_counts = {}
+    for c in candidates:
+        sec = c.get('sector', 'Other')
+        if sector_counts.get(sec, 0) < 3:
+            diversified_selected.append(c)
+            sector_counts[sec] = sector_counts.get(sec, 0) + 1
+            if len(diversified_selected) == 10:
+                break
+    if len(diversified_selected) < 10:
+        diversified_selected = candidates[:10]
+        
+    inv_vars = []
+    for c in diversified_selected:
+        ticker = c['ticker']
+        t_series = price_database.get(ticker, {})
+        h_dates_52 = spy_dates[-52:] if len(spy_dates) >= 52 else spy_dates
+        prices = [t_series.get(d) for d in h_dates_52 if t_series.get(d) is not None]
+        if len(prices) >= 10:
+            rets = [float(prices[i]) / float(prices[i-1]) - 1.0 for i in range(1, len(prices))]
+            mean_ret = sum(rets) / len(rets)
+            var_ret = sum((r - mean_ret)**2 for r in rets) / len(rets)
+            std_ret = var_ret**0.5
+            vol = std_ret * (52**0.5)
+            var = vol**2
+        else:
+            var = 0.04
+            
+        inv_vars.append(1.0 / var if var > 0 else 25.0)
+        
+    sum_inv_vars = sum(inv_vars)
+    parity_selections = []
+    for idx, c in enumerate(diversified_selected):
+        w = round(inv_vars[idx] / sum_inv_vars, 4) if sum_inv_vars > 0 else 0.10
+        parity_selections.append({
+            'ticker': c['ticker'],
+            'companyName': c['companyName'],
+            'weight': float(w)
+        })
+        
+    parity_thesis = f"MPT Risk Parity balances risk contribution across diverse sectors, weighting holdings inversely proportional to their volatility."
+    advisors_selections['RiskParity'] = {
+        'name': 'MPT Risk Parity',
+        'title': 'MPT Risk Parity (Rule)',
+        'desc': 'Balances risk contribution across diverse sectors, weighting holdings inversely proportional to their volatility.',
+        'selections': parity_selections,
+        'thesis': parity_thesis
+    }
+
+    # 4e. Screener Momentum Strategy Selections
+    momentum_list = []
+    for c in candidates:
+        ticker = c['ticker']
+        t_series = price_database.get(ticker, {})
+        if len(spy_dates) >= 26:
+            m6_date = spy_dates[-26]
+            m6_price = t_series.get(m6_date)
+            latest_price = t_series.get(spy_dates[-1])
+            if m6_price and latest_price and float(m6_price) > 0:
+                mom_val = float(latest_price) / float(m6_price) - 1.0
+            else:
+                mom_val = c['score'] / 100.0
+        else:
+            mom_val = c['score'] / 100.0
+        momentum_list.append((c, mom_val))
+        
+    momentum_list.sort(key=lambda x: x[1], reverse=True)
+    mom_selected = [item[0] for item in momentum_list[:10]]
+    
+    mom_selections = []
+    for c in mom_selected:
+        mom_selections.append({
+            'ticker': c['ticker'],
+            'companyName': c['companyName'],
+            'weight': 0.10
+        })
+        
+    mom_thesis = f"Selects the top candidate stocks with the highest historical relative price strength over the last 6 months."
+    advisors_selections['Momentum'] = {
+        'name': 'Screener Momentum',
+        'title': 'Screener Momentum (Rule)',
+        'desc': 'Selects the top candidate stocks with the highest historical relative price strength over the last 6 months.',
+        'selections': mom_selections,
+        'thesis': mom_thesis
+    }
+
     # 5. Backtest horizons
     horizons = {
         '6M': {'weeks': 26, 'label': 'Last 6 Months'},
