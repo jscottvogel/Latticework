@@ -551,7 +551,8 @@ def handler(event, context):
             Bucket=s3_bucket,
             Key='dashboard/advisor_competition.json',
             Body=json.dumps(export_payload, cls=DecimalEncoder, default=str),
-            ContentType='application/json'
+            ContentType='application/json',
+            CacheControl='no-cache, no-store, must-revalidate'
         )
         print("Successfully exported advisor_competition.json to S3.")
     except Exception as e:
