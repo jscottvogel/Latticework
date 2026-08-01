@@ -91,6 +91,7 @@ export default function AdvisorTournament() {
     'Graham': '#1e88e5',    // Classic Blue
     'Munger': '#2e7d32',    // Deep Green
     'Fisher': '#e65100',    // Dark Orange
+    'Beater': '#8e24aa',    // Sleek Purple
     'SPY': '#78909c'        // Cool Slate Grey
   };
 
@@ -345,6 +346,15 @@ export default function AdvisorTournament() {
                 activeDot={{ r: 6 }}
               />
               <Line 
+                name="Consistent Beater (Rule)" 
+                type="monotone" 
+                dataKey="Beater" 
+                stroke={advisorColors.Beater} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
                 name="S&P 500 Index (Benchmark)" 
                 type="monotone" 
                 dataKey="SPY" 
@@ -557,6 +567,24 @@ function getMockCompetitionData() {
       sharpe: 1.48,
       beta: 1.38,
       maxDrawdown: -0.245
+    },
+    {
+      id: 'Beater',
+      name: 'Consistent Beater',
+      title: 'Quantitative Outperformance Rule',
+      thesis: 'Systematically selects all stocks from the candidate universe that outperformed the S&P 500 index in at least 3 of the last 5 years, equal-weighted.',
+      holdings: [
+        { ticker: 'COST', companyName: 'Costco Wholesale Corp.', weight: 0.20 },
+        { ticker: 'MSFT', companyName: 'Microsoft Corp.', weight: 0.20 },
+        { ticker: 'AAPL', companyName: 'Apple Inc.', weight: 0.20 },
+        { ticker: 'NVDA', companyName: 'NVIDIA Corp.', weight: 0.20 },
+        { ticker: 'LLY', companyName: 'Eli Lilly & Co.', weight: 0.20 }
+      ],
+      drift: 0.141,
+      vol: 0.16,
+      sharpe: 1.65,
+      beta: 1.12,
+      maxDrawdown: -0.185
     }
   ];
 
@@ -593,6 +621,13 @@ function getMockCompetitionData() {
         system_prompt: '',
         selections: advisorsList[2].holdings,
         thesis: advisorsList[2].thesis
+      },
+      Beater: {
+        name: 'Consistent Beater',
+        title: 'Quantitative Outperformance Rule',
+        system_prompt: '',
+        selections: advisorsList[3].holdings,
+        thesis: advisorsList[3].thesis
       }
     },
     horizons: {}
@@ -617,13 +652,15 @@ function getMockCompetitionData() {
       const grahamVal = 100.0 * Math.pow(1.0 + advisorsList[0].drift, yearFraction) + noise(2) * 0.7;
       const mungerVal = 100.0 * Math.pow(1.0 + advisorsList[1].drift, yearFraction) + noise(3) * 0.9;
       const fisherVal = 100.0 * Math.pow(1.0 + advisorsList[2].drift, yearFraction) + noise(4) * 1.5;
+      const beaterVal = 100.0 * Math.pow(1.0 + advisorsList[3].drift, yearFraction) + noise(5) * 1.1;
       
       timeline.push({
         date: dateStr,
         SPY: parseFloat(spyVal.toFixed(2)),
         Graham: parseFloat(grahamVal.toFixed(2)),
         Munger: parseFloat(mungerVal.toFixed(2)),
-        Fisher: parseFloat(fisherVal.toFixed(2))
+        Fisher: parseFloat(fisherVal.toFixed(2)),
+        Beater: parseFloat(beaterVal.toFixed(2))
       });
     }
 

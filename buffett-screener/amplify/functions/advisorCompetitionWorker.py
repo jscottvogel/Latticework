@@ -282,17 +282,16 @@ def handler(event, context):
             'thesis': parsed_thesis
         }
 
-    # 3. Fetch weekly prices for all portfolios + SPY
+    # 3. Fetch weekly prices for candidate pool + SPY
     av_key = get_alpha_vantage_key()
     if not av_key:
         return {'status': 'FAILED', 'reason': 'MISSING_ALPHA_VANTAGE_KEY'}
         
     unique_tickers = set(['SPY'])
-    for adv in advisors_selections.values():
-        for s in adv['selections']:
-            unique_tickers.add(s['ticker'])
+    for c in candidates:
+        unique_tickers.add(c['ticker'])
             
-    print(f"Fetching weekly histories for {len(unique_tickers)} tickers...")
+    print(f"Fetching weekly histories for candidate pool ({len(unique_tickers)} tickers)...")
     price_database = {}
     for ticker in sorted(unique_tickers):
         prices = _fetch_weekly_prices(ticker, av_key)
@@ -308,7 +307,72 @@ def handler(event, context):
     if len(spy_dates) < 260:
         print(f"Warning: SPY dates list is short ({len(spy_dates)}). We will backtest on available length.")
         
-    # 4. Backtest horizons
+    # 4. Construct Consistent Beater portfolio
+    beater_selections = []
+    beater_candidates = []
+    
+    spy_series = price_database['SPY']
+    for c in candidates:
+        ticker = c['ticker']
+        t_series = price_database.get(ticker, {})
+        if not t_series:
+            continue
+            
+        outperform_years = 0
+        for y in range(5):
+            end_idx = len(spy_dates) - 1 - (y * 52)
+            start_idx = len(spy_dates) - 1 - ((y + 1) * 52)
+            if start_idx < 0:
+                break
+                
+            start_date = spy_dates[start_idx]
+            end_date = spy_dates[end_idx]
+            
+            spy_start = spy_series.get(start_date)
+            spy_end = spy_series.get(end_date)
+            t_start = t_series.get(start_date)
+            t_end = t_series.get(end_date)
+            
+            if spy_start and spy_end and t_start and t_end:
+                spy_ret = (float(spy_end) / float(spy_start)) - 1.0
+                t_ret = (float(t_end) / float(t_start)) - 1.0
+                if t_ret > spy_ret:
+                    outperform_years += 1
+                    
+        c['outperform_years'] = outperform_years
+        if outperform_years >= 3:
+            beater_candidates.append(c)
+            
+    # Fallback if no candidate beat S&P 500 in 3 of 5 years
+    if not beater_candidates:
+        print("No candidates beat S&P 500 3/5 years. Falling back to highest outperformance count...")
+        max_outperform = max([c.get('outperform_years', 0) for c in candidates]) if candidates else 0
+        if max_outperform > 0:
+            beater_candidates = [c for c in candidates if c.get('outperform_years', 0) == max_outperform]
+        else:
+            beater_candidates = candidates[:10]
+            
+    # Construct portfolio selections (equal weighted)
+    num_beaters = len(beater_candidates)
+    weight_val = 1.0 / float(num_beaters)
+    for c in beater_candidates:
+        beater_selections.append({
+            'ticker': c['ticker'],
+            'companyName': c['companyName'],
+            'weight': weight_val
+        })
+        
+    beater_thesis = f"Constructed systematically by selecting {num_beaters} candidate stocks that beat the S&P 500 in at least 3 of the last 5 years, equal-weighted."
+    
+    advisors_selections['Beater'] = {
+        'name': 'Consistent Beater',
+        'title': 'Quantitative Outperformance Rule',
+        'desc': 'Systematically selects all stocks from the candidate universe that outperformed the S&P 500 index in at least 3 of the last 5 years.',
+        'selections': beater_selections,
+        'thesis': beater_thesis
+    }
+    
+    # 5. Backtest horizons
     horizons = {
         '6M': {'weeks': 26, 'label': 'Last 6 Months'},
         '1Y': {'weeks': 52, 'label': 'Last 1 Year'},

@@ -103,6 +103,7 @@ def test_handler_success(mock_urlopen, mock_resource, mock_client):
     assert 'Graham' in result['advisors']
     assert 'Munger' in result['advisors']
     assert 'Fisher' in result['advisors']
+    assert 'Beater' in result['advisors']
     assert '6M' in result['horizons_calculated']
     assert '5Y' in result['horizons_calculated']
     
@@ -125,11 +126,12 @@ def test_handler_success(mock_urlopen, mock_resource, mock_client):
     assert 'Graham' in timeline[0]
     assert 'Munger' in timeline[0]
     assert 'Fisher' in timeline[0]
+    assert 'Beater' in timeline[0]
     assert 'SPY' in timeline[0]
     
     # Verify stats
     leaderboard = uploaded_json['horizons']['6M']['leaderboard']
-    assert len(leaderboard) == 4 # Graham, Munger, Fisher, SPY
+    assert len(leaderboard) == 5 # Graham, Munger, Fisher, Beater, SPY
     for entity in leaderboard:
         assert 'totalReturn' in entity
         assert 'sharpe' in entity
