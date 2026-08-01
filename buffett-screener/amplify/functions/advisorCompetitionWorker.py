@@ -154,6 +154,33 @@ def handler(event, context):
         print(f"Error scanning rolling scores: {e}")
         return {'status': 'FAILED', 'reason': f"DYNAMODB_SCAN_ERROR: {str(e)}"}
         
+    # 1b. Load latest stock scores to retrieve sub-scores
+    latest_scores_map = {}
+    stock_table_name = os.environ.get('DYNAMODB_TABLE_STOCK_SCORES')
+    if stock_table_name:
+        try:
+            stock_table = dynamodb.Table(stock_table_name)
+            response = stock_table.scan()
+            stock_scores = response.get('Items', [])
+            while 'LastEvaluatedKey' in response:
+                response = stock_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+                stock_scores.extend(response.get('Items', []))
+            
+            # Identify latest runId
+            run_ids = list(set(item['runId'] for item in stock_scores if 'runId' in item))
+            if run_ids:
+                run_ids.sort()
+                latest_run_id = run_ids[-1]
+                print(f"Latest runId identified for sub-scores: {latest_run_id}")
+                for item in stock_scores:
+                    if item.get('runId') == latest_run_id:
+                        latest_scores_map[item['ticker']] = {
+                            'scoreMoat': float(item.get('scoreMoat') or 50.0),
+                            'scoreMarginOfSafety': float(item.get('scoreMarginOfSafety') or 50.0)
+                        }
+        except Exception as e:
+            print(f"Error scanning stock scores: {e}")
+        
     # Filter candidates with clean details and sort by composite score
     candidates = []
     for s in rolling_scores:
@@ -370,6 +397,61 @@ def handler(event, context):
         'desc': 'Systematically selects all stocks from the candidate universe that outperformed the S&P 500 index in at least 3 of the last 5 years.',
         'selections': beater_selections,
         'thesis': beater_thesis
+    }
+    
+    # 4b. Moat Compounders Strategy Selections
+    moat_list = []
+    for c in candidates:
+        ticker = c['ticker']
+        m_val = latest_scores_map.get(ticker, {}).get('scoreMoat', c['score'])
+        moat_list.append((c, m_val))
+    moat_list.sort(key=lambda x: x[1], reverse=True)
+    moat_selected = [item[0] for item in moat_list[:10]]
+    
+    total_moat_score = sum(latest_scores_map.get(c['ticker'], {}).get('scoreMoat', c['score']) for c in moat_selected)
+    moat_selections = []
+    for c in moat_selected:
+        m_score = latest_scores_map.get(c['ticker'], {}).get('scoreMoat', c['score'])
+        w = round(m_score / total_moat_score, 4) if total_moat_score > 0 else 0.10
+        moat_selections.append({
+            'ticker': c['ticker'],
+            'companyName': c['companyName'],
+            'weight': float(w)
+        })
+        
+    moat_thesis = f"Constructed systematically by selecting the top 10 candidate stocks with the highest competitive moat scores, score-weighted."
+    advisors_selections['MoatCompounders'] = {
+        'name': 'Moat Compounders',
+        'title': 'Quality & High-ROIC Rule',
+        'desc': 'Selects the top scoring stocks with the strongest competitive advantage scores, weighted by business quality.',
+        'selections': moat_selections,
+        'thesis': moat_thesis
+    }
+
+    # 4c. Buffett Value Gap Strategy Selections
+    value_list = []
+    for c in candidates:
+        ticker = c['ticker']
+        v_val = latest_scores_map.get(ticker, {}).get('scoreMarginOfSafety', c['score'])
+        value_list.append((c, v_val))
+    value_list.sort(key=lambda x: x[1], reverse=True)
+    value_selected = [item[0] for item in value_list[:10]]
+    
+    value_selections = []
+    for c in value_selected:
+        value_selections.append({
+            'ticker': c['ticker'],
+            'companyName': c['companyName'],
+            'weight': 0.10
+        })
+        
+    value_thesis = f"Constructed systematically by selecting the top 10 candidate stocks with the highest margin of safety discounts, equal-weighted."
+    advisors_selections['ValueGap'] = {
+        'name': 'Buffett Value Gap',
+        'title': 'Margin of Safety Rule',
+        'desc': 'Selects the top scoring stocks with the highest margin of safety discounts, equal-weighted.',
+        'selections': value_selections,
+        'thesis': value_thesis
     }
     
     # 5. Backtest horizons

@@ -294,6 +294,7 @@ memoGeneratorLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 
 advisorCompetitionWorkerLambda.addEnvironment('DYNAMODB_TABLE_ROLLING_SCORES', rollingScoresTable.tableName);
 advisorCompetitionWorkerLambda.addEnvironment('DYNAMODB_TABLE_SCORE_OUTCOMES', scoreOutcomesTable.tableName);
+advisorCompetitionWorkerLambda.addEnvironment('DYNAMODB_TABLE_STOCK_SCORES', stockScoresTable.tableName);
 advisorCompetitionWorkerLambda.addEnvironment('S3_BUCKET', dataBucket.bucketName);
 
 // EventBridge Scheduler (Mon-Fri at 8 AM CST / 2 PM UTC)

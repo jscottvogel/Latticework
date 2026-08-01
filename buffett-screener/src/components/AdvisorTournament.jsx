@@ -92,6 +92,8 @@ export default function AdvisorTournament() {
     'Munger': '#2e7d32',    // Deep Green
     'Fisher': '#e65100',    // Dark Orange
     'Beater': '#8e24aa',    // Sleek Purple
+    'MoatCompounders': '#00acc1', // Cyan/Teal
+    'ValueGap': '#ff8f00',        // Dark Amber/Gold
     'SPY': '#78909c'        // Cool Slate Grey
   };
 
@@ -355,6 +357,24 @@ export default function AdvisorTournament() {
                 activeDot={{ r: 6 }}
               />
               <Line 
+                name="Moat Compounders (Rule)" 
+                type="monotone" 
+                dataKey="MoatCompounders" 
+                stroke={advisorColors.MoatCompounders} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
+                name="Buffett Value Gap (Rule)" 
+                type="monotone" 
+                dataKey="ValueGap" 
+                stroke={advisorColors.ValueGap} 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
                 name="S&P 500 Index (Benchmark)" 
                 type="monotone" 
                 dataKey="SPY" 
@@ -585,6 +605,42 @@ function getMockCompetitionData() {
       sharpe: 1.65,
       beta: 1.12,
       maxDrawdown: -0.185
+    },
+    {
+      id: 'MoatCompounders',
+      name: 'Moat Compounders',
+      title: 'Quality & High-ROIC Rule',
+      thesis: 'Selects the top scoring stocks with the strongest competitive advantage scores, weighted by business quality.',
+      holdings: [
+        { ticker: 'COST', companyName: 'Costco Wholesale Corp.', weight: 0.25 },
+        { ticker: 'MSFT', companyName: 'Microsoft Corp.', weight: 0.25 },
+        { ticker: 'AAPL', companyName: 'Apple Inc.', weight: 0.20 },
+        { ticker: 'V', companyName: 'Visa Inc.', weight: 0.15 },
+        { ticker: 'MA', companyName: 'Mastercard Inc.', weight: 0.15 }
+      ],
+      drift: 0.158,
+      vol: 0.15,
+      sharpe: 1.85,
+      beta: 1.08,
+      maxDrawdown: -0.155
+    },
+    {
+      id: 'ValueGap',
+      name: 'Buffett Value Gap',
+      title: 'Margin of Safety Rule',
+      thesis: 'Selects the top scoring stocks with the highest margin of safety discounts, equal-weighted.',
+      holdings: [
+        { ticker: 'BRK.B', companyName: 'Berkshire Hathaway Inc.', weight: 0.20 },
+        { ticker: 'JNJ', companyName: 'Johnson & Johnson', weight: 0.20 },
+        { ticker: 'PG', companyName: 'Procter & Gamble Co.', weight: 0.20 },
+        { ticker: 'XOM', companyName: 'Exxon Mobil Corp.', weight: 0.20 },
+        { ticker: 'JPM', companyName: 'JPMorgan Chase & Co.', weight: 0.20 }
+      ],
+      drift: 0.115,
+      vol: 0.12,
+      sharpe: 1.45,
+      beta: 0.88,
+      maxDrawdown: -0.135
     }
   ];
 
@@ -628,6 +684,20 @@ function getMockCompetitionData() {
         system_prompt: '',
         selections: advisorsList[3].holdings,
         thesis: advisorsList[3].thesis
+      },
+      MoatCompounders: {
+        name: 'Moat Compounders',
+        title: 'Quality & High-ROIC Rule',
+        system_prompt: '',
+        selections: advisorsList[4].holdings,
+        thesis: advisorsList[4].thesis
+      },
+      ValueGap: {
+        name: 'Buffett Value Gap',
+        title: 'Margin of Safety Rule',
+        system_prompt: '',
+        selections: advisorsList[5].holdings,
+        thesis: advisorsList[5].thesis
       }
     },
     horizons: {}
@@ -653,6 +723,8 @@ function getMockCompetitionData() {
       const mungerVal = 100.0 * Math.pow(1.0 + advisorsList[1].drift, yearFraction) + noise(3) * 0.9;
       const fisherVal = 100.0 * Math.pow(1.0 + advisorsList[2].drift, yearFraction) + noise(4) * 1.5;
       const beaterVal = 100.0 * Math.pow(1.0 + advisorsList[3].drift, yearFraction) + noise(5) * 1.1;
+      const moatCompVal = 100.0 * Math.pow(1.0 + advisorsList[4].drift, yearFraction) + noise(6) * 0.8;
+      const valueGapVal = 100.0 * Math.pow(1.0 + advisorsList[5].drift, yearFraction) + noise(7) * 0.6;
       
       timeline.push({
         date: dateStr,
@@ -660,7 +732,9 @@ function getMockCompetitionData() {
         Graham: parseFloat(grahamVal.toFixed(2)),
         Munger: parseFloat(mungerVal.toFixed(2)),
         Fisher: parseFloat(fisherVal.toFixed(2)),
-        Beater: parseFloat(beaterVal.toFixed(2))
+        Beater: parseFloat(beaterVal.toFixed(2)),
+        MoatCompounders: parseFloat(moatCompVal.toFixed(2)),
+        ValueGap: parseFloat(valueGapVal.toFixed(2))
       });
     }
 
